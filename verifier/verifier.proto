@@ -1,0 +1,88 @@
+syntax = "proto3";
+
+package verifier;
+
+option go_package = "github.com/salrashid123/tpm_daemonset/verifier";
+
+service Verifier {
+  rpc GetEKCert (GetEKCertRequest) returns (GetEKCertResponse) { }
+  rpc GetAK (GetAKRequest) returns (GetAKResponse) { }
+  rpc Attest (AttestRequest) returns (AttestResponse) { }
+  rpc Quote (QuoteRequest) returns (QuoteResponse) { }
+  rpc ImportBlob (ImportBlobRequest) returns (ImportBlobResponse) { }
+  rpc ImportSigningKey (ImportSigningKeyRequest) returns (ImportSigningKeyResponse) { }
+  rpc NewKey (NewKeyRequest) returns (NewKeyResponse) { }
+  rpc Sign (SignRequest) returns (SignResponse) { }
+}
+
+
+message GetEKCertRequest {}
+
+message GetEKCertResponse {
+  bytes ekCert = 1;
+}
+
+message GetAKRequest {
+  string uid = 1;
+}
+
+message GetAKResponse {
+  bytes ak = 1;
+}
+
+message AttestRequest {
+  string uid = 1;
+  bytes encryptedCredentials = 2;
+}
+
+message AttestResponse {
+  bytes secret = 1;
+}
+
+message QuoteRequest {
+  string uid = 1;
+  bytes nonce = 2;
+}
+
+message QuoteResponse {
+  bytes platformAttestation = 1;
+}
+
+message ImportBlobRequest {
+  string uid = 1;
+  bytes encryptedKey = 2;
+}
+
+message ImportBlobResponse {
+  bytes decryptedKey = 1;
+}
+
+message ImportSigningKeyRequest {
+  string uid = 1;
+  string kid = 2;
+  bytes encryptedSigningKey = 3;
+}
+
+message ImportSigningKeyResponse {
+  bytes confirmation = 1;
+}
+
+message NewKeyRequest {
+  string uid = 1;
+  string kid = 2;  
+}
+
+message NewKeyResponse {
+  bytes public = 1;
+  bytes keyCertification = 2;
+}
+
+message SignRequest {
+  string uid = 1;
+  string kid = 2;
+  bytes data = 3;
+}
+
+message SignResponse {
+  bytes signed = 1;
+}
