@@ -88,7 +88,8 @@ gcloud container clusters create cluster-1  \
    --region=us-central1 --machine-type=n2d-standard-2 --enable-confidential-nodes \
    --enable-shielded-nodes --shielded-secure-boot --shielded-integrity-monitoring --num-nodes=1
 
-
+$ cd example/
+$ kubectl apply -f .
 $ kubectl get po,svc,no -o wide
 NAME                       READY   STATUS    RESTARTS   AGE   IP           NODE                                       NOMINATED NODE   READINESS GATES
 pod/app-5565d6b794-nfb66   1/1     Running   0          28s   10.60.2.47   gke-cluster-1-default-pool-7c317a84-nfc1   <none>           <none>
@@ -118,6 +119,10 @@ $ go run grpc_verifier.go -host app-service:50051 \
 ```
 
 The output on the verifier will show the outputs of the end-to-end tests:
+
+Note that each invocation returns the EKCert issued to the same NodeVM (in our ase, its `gke-cluster-1-default-pool-7c317a84-nfc1`)...and thats just where the app pod was deployed.  
+
+The EKCert shown in this repo uses the specific certificates signed by google and is verified by the client itself.
 
 ```log
 root@app-5565d6b794-nfb66:/# /grpc_verifier -host app-service:50051  -uid 121123 -kid 213412331 --v=10 -alsologtostderr
@@ -206,3 +211,144 @@ I0612 12:44:37.627104       1 grpc_attestor.go:420] ======= Sign ========
 ```
 
 ---
+
+
+#### GCP EK and instance identity specifications
+
+##### EKCert for node
+
+```bash
+gcloud compute instances get-shielded-identity gke-cluster-1-default-pool-7c317a84-nfc1 \
+ --zone=us-central1-c \
+  --format="value(encryptionKey.ekCert)" | awk '/^$/{n=n RS}; /./{printf "%s",n; n=""; print}' -  > /tmp/ekcert.pem
+
+openssl x509 -in /tmp/ekcert.pem -text -noout
+```
+
+yields specifications of the node.  Note the value of 
+
+```
+            1.3.6.1.4.1.11129.2.1.21: 
+us-central1-c....m.et..mineral-minutia-820..?m...(q*.(gke-cluster-1-default-pool-7c317a84-nfc1. 0...............................
+```
+
+Thats actually a custom OID you can parse using [server.GetGCEInstanceInfo](https://pkg.go.dev/github.com/google/go-tpm-tools/server#GetGCEInstanceInfo)
+
+In our case, it yields the name of the VM and its instanceID
+
+```log
+I0612 12:44:36.859398      13 grpc_verifier.go:156]      EKCert  GCE InstanceID 4570452845155348778
+I0612 12:44:36.859420      13 grpc_verifier.go:157]      EKCert  GCE InstanceName gke-cluster-1-default-pool-7c317a84-nfc1
+I0612 12:44:36.859465      13 grpc_verifier.go:158]      EKCert  GCE ProjectId mineral-minutia-820
+```
+
+To parse the cert:
+```
+$ openssl x509 -in /tmp/ekcert.pem -text -noout
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number:
+            01:ca:21:a6:a1:fa:1f:55:4f:de:c6:f4:39:74:07:82:fd:c7:1a
+        Signature Algorithm: sha256WithRSAEncryption
+        Issuer: C = US, ST = California, L = Mountain View, O = Google LLC, OU = Cloud, CN = "tpm_ek_v1_cloud_host-signer-0-2021-10-12T04:22:11-07:00 K:1, 3:nbvaGZFLcuc:0:18"
+        Validity
+            Not Before: Jun 11 13:39:47 2023 GMT
+            Not After : Jun  3 13:44:47 2053 GMT
+        Subject: 
+        Subject Public Key Info:
+            Public Key Algorithm: rsaEncryption
+                Public-Key: (2048 bit)
+                Modulus:
+                    00:c4:6f:3f:22:2a:a1:b2:92:d4:f3:66:de:29:85:
+                    3a:9d:59:74:95:c7:8c:04:c9:aa:1e:ad:93:4e:a8:
+                    95:39:0c:19:74:eb:f7:ef:94:e7:8c:e3:9a:c3:cf:
+                    75:62:65:11:01:6c:85:2b:b9:0a:26:20:ce:4e:fe:
+                    30:41:a6:f1:c9:89:3d:b5:31:55:87:06:0e:c6:c6:
+                    8a:7b:ef:14:3b:13:82:60:42:25:03:82:35:4a:61:
+                    26:6b:19:62:d6:29:d5:23:72:5c:21:b4:b0:93:df:
+                    62:a7:42:27:7d:e2:61:2b:34:56:02:e9:f5:06:d6:
+                    59:72:c6:62:c0:55:f6:8a:c9:5e:63:58:2e:2f:e3:
+                    7c:05:81:b6:86:59:93:e6:ef:50:ff:48:a1:e4:d9:
+                    88:98:69:a5:d1:5b:5b:f8:c9:41:1e:eb:43:df:83:
+                    94:12:95:a8:9e:86:46:6b:38:48:c6:88:8e:5e:37:
+                    73:d2:f1:99:41:d7:30:61:ae:0c:b3:14:b2:9d:ad:
+                    b1:1e:1f:c7:d6:9e:8e:79:eb:6c:c1:e7:40:f2:46:
+                    55:14:2b:0e:1d:73:2b:ad:9f:65:6f:dc:a9:a1:08:
+                    4e:51:76:05:8f:31:b1:08:46:53:19:28:ca:03:6b:
+                    80:cb:6e:6a:2b:91:99:3c:7d:99:e7:f2:cb:78:5f:
+                    9c:53
+                Exponent: 65537 (0x10001)
+        X509v3 extensions:
+            X509v3 Basic Constraints: critical
+                CA:FALSE
+            X509v3 Authority Key Identifier: 
+                67:08:C4:77:11:FD:D5:87:84:D3:2C:1D:6B:4D:97:83:60:84:25:80
+            Authority Information Access: 
+                CA Issuers - URI:https://pki.goog/cloud_integrity/tpm_ek_intermediate_3.crt
+            X509v3 CRL Distribution Points: 
+                Full Name:
+                  URI:https://pki.goog/cloud_integrity/tpm_ek_intermediate_3.crl
+            X509v3 Key Usage: critical
+                Key Encipherment
+            X509v3 Extended Key Usage: 
+                2.23.133.8.1
+            X509v3 Subject Directory Attributes: 
+                0.0...g....1.0...2.0.......
+            X509v3 Subject Alternative Name: critical
+                DirName:/2.23.133.2.1=id:474F4F47/2.23.133.2.2=vTPM/2.23.133.2.3=id:20160511
+            1.3.6.1.4.1.11129.2.1.21: 
+us-central1-c....m.et..mineral-minutia-820..?m...(q*.(gke-cluster-1-default-pool-7c317a84-nfc1. 0...............................
+    Signature Algorithm: sha256WithRSAEncryption
+    Signature Value:
+        28:d3:46:0d:bd:72:83:4a:a7:83:e5:fd:1f:0e:67:0b:00:3d:
+        04:76:01:2d:13:3c:04:30:c3:47:45:f9:43:ed:a5:8b:87:26:
+        1f:10:28:38:68:0e:19:b1:75:92:df:72:a1:b3:0c:66:ad:ee:
+        84:45:c9:9b:c1:8f:6e:ff:e1:6b:57:35:0b:67:67:e3:12:b6:
+        15:9e:8e:18:40:f2:d3:47:6d:32:19:f7:39:8a:3d:f4:3a:1f:
+        32:1f:dc:40:ac:8f:f4:52:cf:7f:2a:9f:3e:73:4b:28:33:f9:
+        f6:c3:ac:39:77:76:21:a5:b4:5b:31:4d:bc:d0:ff:f6:8f:ec:
+        f2:ce:32:ab:44:a3:89:12:1c:d8:ef:40:8a:2d:48:dd:30:43:
+        12:1f:de:04:c3:de:2e:11:63:97:78:a0:5c:e1:93:d3:08:25:
+        d1:92:9f:3f:54:91:08:ca:17:e3:d7:2e:cd:3b:64:f4:e2:cc:
+        ba:6a:f8:31:80:f5:bd:b3:40:99:c2:f9:6d:15:67:e8:75:fa:
+        23:37:9b:53:9d:df:12:83:b2:2c:02:76:d7:e3:ca:fa:4b:43:
+        c2:69:47:83:02:90:da:09:64:fd:e8:3e:a9:eb:6e:ef:5b:1e:
+        b7:ae:2d:3e:34:ea:88:45:3c:26:b8:c1:35:9e:8a:5a:b0:e7:
+        99:66:9b:30
+
+```
+
+##### Instance identity claim for instance_confidentiality
+
+If the daemonset or application pod can access the instances's [indentity_document](https://cloud.google.com/compute/docs/instances/verifying-instance-identity#payload), the applcation will immediately have
+a [google-signed OIDC token](https://github.com/salrashid123/google_id_token) that will carry claims denoting the node and vm instance id and even if the vm itself is running in confidential mode (`instance_confidentiality`).
+
+This oidc token can act as a bearer token in conjunction with the TPM's EKCert and can be "joined" using the `instance_id` value present in both 
+
+
+```
+root@app-57db75578b-jr4xs:/app# curl -H "Metadata-Flavor: Google" 'http://metadata/computeMetadata/v1/instance/service-accounts/default/identity?audience=https://foo.bar&format=full'
+
+{
+  "aud": "https://foo.bar",
+  "azp": "112179062720391305885",
+  "email": "1071284184436-compute@developer.gserviceaccount.com",
+  "email_verified": true,
+  "exp": 1686583887,
+  "google": {
+    "compute_engine": {
+      "instance_confidentiality": 1,
+      "instance_creation_timestamp": 1686491081,
+      "instance_id": "4570452845155348778",
+      "instance_name": "gke-cluster-1-default-pool-7c317a84-nfc1",
+      "project_id": "mineral-minutia-820",
+      "project_number": 1071284184436,
+      "zone": "us-central1-c"
+    }
+  },
+  "iat": 1686580287,
+  "iss": "https://accounts.google.com",
+  "sub": "112179062720391305885"
+}
+```

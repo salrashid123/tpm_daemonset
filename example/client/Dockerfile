@@ -12,9 +12,9 @@ ADD . /app
 
 RUN go mod download
 
-RUN go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-RUN go install github.com/golang/protobuf/protoc-gen-go@latest
-RUN protoc --go_out=. --go_opt=paths=source_relative --go-grpc_opt=require_unimplemented_servers=false --go-grpc_out=. --go-grpc_opt=paths=source_relative verifier/verifier.proto
+# RUN go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+# RUN go install github.com/golang/protobuf/protoc-gen-go@latest
+# RUN protoc --go_out=. --go_opt=paths=source_relative --go-grpc_opt=require_unimplemented_servers=false --go-grpc_out=. --go-grpc_opt=paths=source_relative verifier/verifier.proto
 RUN GOOS=linux GOARCH=amd64 go build -buildvcs=true -o /go/bin/grpc_verifier grpc_verifier.go 
 RUN chown root:root /go/bin/grpc_verifier
 
