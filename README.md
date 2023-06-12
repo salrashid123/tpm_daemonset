@@ -70,7 +70,7 @@ The daemonset's API access is visible to the pods in that same node enforced tho
 apiVersion: v1
 kind: Service
 metadata:
-  name: app-service
+  name: tpm-service
 spec:
   internalTrafficPolicy: Local
   selector:
@@ -120,7 +120,7 @@ To use, simply create a GKE cluster, deploy
 ```bash
 gcloud container clusters create cluster-1  \
    --region=us-central1 --machine-type=n2d-standard-2 --enable-confidential-nodes \
-   --enable-shielded-nodes --shielded-secure-boot --shielded-integrity-monitoring --num-nodes=1
+   --enable-shielded-nodes --shielded-secure-boot --shielded-integrity-monitoring --num-nodes=1 --enable-network-policy
 
 $ cd example/
 $ kubectl apply -f .
@@ -132,7 +132,7 @@ pod/tpm-ds-pkvhs           1/1     Running   0          6s    10.60.1.32   gke-c
 pod/tpm-ds-w5fvd           1/1     Running   0          6s    10.60.0.32   gke-cluster-1-default-pool-380e9ee7-fbk3   <none>           <none>
 
 NAME                  TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)     AGE   SELECTOR
-service/app-service   ClusterIP   10.64.11.144   <none>        50051/TCP   6s    name=tpm-ds
+service/tpm-service   ClusterIP   10.64.11.144   <none>        50051/TCP   6s    name=tpm-ds
 service/kubernetes    ClusterIP   10.64.0.1      <none>        443/TCP     22h   <none>
 
 NAME                                            STATUS   ROLES    AGE   VERSION           INTERNAL-IP   EXTERNAL-IP      OS-IMAGE                             KERNEL-VERSION   CONTAINER-RUNTIME
@@ -144,7 +144,7 @@ node/gke-cluster-1-default-pool-8dcbbab8-1kck   Ready    <none>   22h   v1.25.8-
 $ kubectl exec --stdin --tty pod/app-5565d6b794-nfb66 -- /bin/bash
 
 $ cd /app
-$ go run grpc_verifier.go -host app-service:50051 \
+$ go run grpc_verifier.go -host tpm-service:50051 \
    -uid 121123 -kid 213412331 \
    -caCertTLS /certs/root.pem \
    -ekRootCA=/certs/tpm_ek_root_1.pem \
@@ -159,7 +159,8 @@ Note that each invocation returns the EKCert issued to the same NodeVM (in our a
 The EKCert shown in this repo uses the specific certificates signed by google and is verified by the client itself.
 
 ```log
-root@app-5565d6b794-nfb66:/# /grpc_verifier -host app-service:50051  -uid 121123 -kid 213412331 --v=10 -alsologtostderr
+root@app-5565d6b794-nfb66:/# /grpc_verifier -host tpm-service:50051  -uid 121123 -kid 213412331 --v=10 -alsologtostderr
+
 I0612 12:44:36.857804      13 grpc_verifier.go:119] RPC HealthChekStatus:SERVING
 I0612 12:44:36.858286      13 grpc_verifier.go:121] =============== start GetEKCert ===============
 I0612 12:44:36.859248      13 grpc_verifier.go:151]      EKCert  Issuer CN=tpm_ek_v1_cloud_host-signer-0-2021-10-12T04:22:11-07:00 K:1\, 3:nbvaGZFLcuc:0:18,OU=Cloud,O=Google LLC,L=Mountain View,ST=California,C=US

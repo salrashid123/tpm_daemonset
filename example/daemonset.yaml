@@ -12,7 +12,7 @@ type: Opaque
 apiVersion: v1
 kind: Service
 metadata:
-  name: app-service
+  name: tpm-service
 spec:
   internalTrafficPolicy: Local
   selector:
@@ -28,6 +28,22 @@ metadata:
   name: tpm-service-account
   namespace: default
 automountServiceAccountToken: true
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-tpm
+spec:
+  podSelector:
+    matchLabels:
+      name: tpm-ds
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          allowtpm: "true"
+  policyTypes:
+    - Ingress
 ---
 apiVersion: apps/v1
 kind: DaemonSet

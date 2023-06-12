@@ -33,6 +33,7 @@ spec:
     metadata:
       labels:
         name: app-service
+        allowtpm: "true"
     spec:
       serviceAccountName: app-service-account
       automountServiceAccountToken: true
