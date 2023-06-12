@@ -47,6 +47,23 @@ service Verifier {
 }
 ```
 
+The daemonset's API access is visible to the pods in that same node enforced though the `internalTrafficPolicy: Local` directive
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-service
+spec:
+  internalTrafficPolicy: Local
+  selector:
+    name: tpm-ds
+  ports:
+  - name: http-port
+    protocol: TCP
+    port: 50051
+```
+
 >> note: this repo and code is **not** supported by Google
 
 ---
@@ -211,7 +228,6 @@ I0612 12:44:37.627104       1 grpc_attestor.go:420] ======= Sign ========
 ```
 
 ---
-
 
 #### GCP EK and instance identity specifications
 
