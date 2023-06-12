@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - protoc             v3.19.1
-// source: src/verifier/verifier.proto
+// source: verifier/verifier.proto
 
 package verifier
 
@@ -362,5 +362,5 @@ var Verifier_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "src/verifier/verifier.proto",
+	Metadata: "verifier/verifier.proto",
 }
