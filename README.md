@@ -36,13 +36,30 @@ The specific gRPC interfaces for the above are:
 option go_package = "github.com/salrashid123/tpm_daemonset/verifier";
 
 service Verifier {
+  // get endorsement certificate
   rpc GetEKCert (GetEKCertRequest) returns (GetEKCertResponse) { }
+
+  // get an attestation key
   rpc GetAK (GetAKRequest) returns (GetAKResponse) { }
+
+  // remote attestation
   rpc Attest (AttestRequest) returns (AttestResponse) { }
+
+  // quote/verify
   rpc Quote (QuoteRequest) returns (QuoteResponse) { }
+
+  // decrypt an external encrypted secret on the TPM
+  //  the secret is encrypted using that tpm's EK
   rpc ImportBlob (ImportBlobRequest) returns (ImportBlobResponse) { }
+
+  // (unimplemented) load an encrypted external RSA key into TPM
+  //   RSA key is encrypted using that tpm's EK
   rpc ImportSigningKey (ImportSigningKeyRequest) returns (ImportSigningKeyResponse) { }
+
+  //  generate a new RSA key embedded on the TPM
   rpc NewKey (NewKeyRequest) returns (NewKeyResponse) { }
+
+  // use embedded TPM rsa key to sign data
   rpc Sign (SignRequest) returns (SignResponse) { }
 }
 ```
