@@ -9,7 +9,6 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/asn1"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -47,9 +46,6 @@ import (
 const ()
 
 var (
-	ekRootCA       = flag.String("ekRootCA", "certs/tpm_ek_root_1.pem", "CA for the EKRootSigner")
-	ekIntermediate = flag.String("ekIntermediate", "certs/tpm_ek_intermediate_3.pem", "Intermediate for EKCert")
-
 	importBlobSecret     = flag.String("importBlobSecret", "G-KaPdSgUkXp2s5v8y/B?E(H+MbQeThW", "secret")
 	expectedPCRMapSHA256 = flag.String("expectedPCRMapSHA256", "0:a0b5ff3383a1116bd7dc6df177c0c2d433b9ee1813ea958fa5d166a202cb2a85", "Sealing and Quote PCRMap (as comma separated key:value).  pcr#:sha256,pcr#sha256.  Default value uses pcr0:sha256")
 
@@ -114,89 +110,36 @@ func main() {
 	}
 	glog.V(2).Infof("RPC HealthChekStatus:%v", resp.GetStatus())
 
-	glog.V(5).Infof("=============== start GetEKCert ===============")
+	glog.V(5).Infof("=============== start GetEK ===============")
 
-	ekReq := &verifier.GetEKCertRequest{}
+	ekReq := &verifier.GetEKRequest{}
 
 	c := verifier.NewVerifierClient(conn)
-	ekCertResponse, err := c.GetEKCert(ctx, ekReq)
+	ekResponse, err := c.GetEK(ctx, ekReq)
 	if err != nil {
-		glog.Errorf("GetEKCert Failed,   Original Error is: %v", err)
+		glog.Errorf("GetEK Failed,   Original Error is: %v", err)
 		os.Exit(1)
 	}
 
-	ekcert, err := x509.ParseCertificate(ekCertResponse.EkCert)
-	if err != nil {
-		glog.Errorf("ERROR:   ParseCertificate: %v", err)
-		os.Exit(1)
-	}
-	spubKey := ekcert.PublicKey.(*rsa.PublicKey)
-
-	skBytes, err := x509.MarshalPKIXPublicKey(spubKey)
-	if err != nil {
-		glog.Errorf("ERROR:  could  MarshalPKIXPublicKey: %v", err)
-		os.Exit(1)
-	}
 	ekPubPEM := pem.EncodeToMemory(
 		&pem.Block{
 			Type:  "PUBLIC KEY",
-			Bytes: skBytes,
+			Bytes: ekResponse.EkPub,
 		},
 	)
+	glog.V(5).Infof("     EKPub: \n%s\n", ekPubPEM)
 
-	glog.V(10).Infof("     EKCert  Issuer %v", ekcert.Issuer)
-	glog.V(10).Infof("     EKCert  IssuingCertificateURL %v", fmt.Sprint(ekcert.IssuingCertificateURL))
+	bblock, _ := pem.Decode(ekPubPEM)
+	if bblock == nil {
+		glog.Errorf("GetEK Failed,   Original Error is: %v", err)
+		os.Exit(1)
+	}
 
-	gceInfo, err := server.GetGCEInstanceInfo(ekcert)
+	ekPub, err := x509.ParsePKIXPublicKey(bblock.Bytes)
 	if err != nil {
-		glog.V(10).Infof("     Not on GCE")
-	} else {
-		glog.V(10).Infof("     EKCert  GCE InstanceID %d", gceInfo.InstanceId)
-		glog.V(10).Infof("     EKCert  GCE InstanceName %s", gceInfo.InstanceName)
-		glog.V(10).Infof("     EKCert  GCE ProjectId %s", gceInfo.ProjectId)
-	}
-
-	glog.V(10).Infof("    EkCert Public Key \n%s\n", ekPubPEM)
-
-	glog.V(10).Info("    Verifying EKCert")
-
-	rootPEM, err := ioutil.ReadFile(*ekRootCA)
-	if err != nil {
-		glog.Errorf("Error Reading root %v", err)
+		glog.Errorf("Error parsing ekpub: %v", err)
 		os.Exit(1)
 	}
-
-	roots := x509.NewCertPool()
-	ok := roots.AppendCertsFromPEM([]byte(rootPEM))
-	if !ok {
-		glog.Errorf("failed to parse root certificate")
-		os.Exit(1)
-	}
-
-	interPEM, err := ioutil.ReadFile(*ekIntermediate)
-	if err != nil {
-		glog.Errorf("Error Reading intermediate %v", err)
-		os.Exit(1)
-	}
-
-	inters := x509.NewCertPool()
-	ok = inters.AppendCertsFromPEM(interPEM)
-	if !ok {
-		glog.Errorf("failed to parse intermediate certificate")
-		os.Exit(1)
-	}
-
-	ekcert.UnhandledCriticalExtensions = []asn1.ObjectIdentifier{}
-	_, err = ekcert.Verify(x509.VerifyOptions{
-		Roots:         roots,
-		Intermediates: inters,
-		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
-	})
-	if err != nil {
-		glog.Errorf("Error Reading intermediate %v", err)
-		os.Exit(1)
-	}
-	glog.V(10).Info("    EKCert Verified")
 
 	glog.V(5).Infof("=============== end GetEKCert ===============")
 
@@ -219,7 +162,7 @@ func main() {
 
 	params := attest.ActivationParameters{
 		TPMVersion: attest.TPMVersion20,
-		EK:         ekcert.PublicKey,
+		EK:         ekPub,
 		AK:         *serverAttestationParameter,
 	}
 	akp, err := attest.ParseAKPublic(attest.TPMVersion20, serverAttestationParameter.Public)
@@ -354,7 +297,7 @@ func main() {
 
 	glog.V(5).Infof("     importSecret %s", *importBlobSecret)
 
-	importBlob, err := server.CreateImportBlob(ekcert.PublicKey, []byte(*importBlobSecret), vpcrs)
+	importBlob, err := server.CreateImportBlob(ekPub, []byte(*importBlobSecret), vpcrs)
 	if err != nil {
 		glog.Errorf("Unable to CreateImportBlob : %v", err)
 		os.Exit(1)

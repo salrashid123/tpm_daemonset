@@ -100,15 +100,27 @@ func (s *hserver) Watch(in *healthpb.HealthCheckRequest, srv healthpb.Health_Wat
 	return status.Error(codes.Unimplemented, "Watch is not implemented")
 }
 
-func (s *server) GetEKCert(ctx context.Context, in *verifier.GetEKCertRequest) (*verifier.GetEKCertResponse, error) {
-	glog.V(2).Infof("======= GetEKCert ========")
-	if ek.Certificate != nil {
-		return &verifier.GetEKCertResponse{
-			EkCert: ek.Certificate.Raw,
+func (s *server) GetEK(ctx context.Context, in *verifier.GetEKRequest) (*verifier.GetEKResponse, error) {
+	glog.V(2).Infof("======= GetEK ========")
+	if ek.Public != nil {
+		pubBytes, err := x509.MarshalPKIXPublicKey(ek.Public)
+		if err != nil {
+			glog.Errorf("ERROR:  could  marshall public key %v", err)
+			return &verifier.GetEKResponse{}, grpc.Errorf(codes.Internal, fmt.Sprintf("ERROR:   could  marshall public key"))
+		}
+
+		if ek.Certificate != nil {
+			return &verifier.GetEKResponse{
+				EkPub:  pubBytes,
+				EkCert: ek.Certificate.Raw,
+			}, nil
+		}
+		return &verifier.GetEKResponse{
+			EkPub: pubBytes,
 		}, nil
 	} else {
-		glog.Errorf("ERROR:  could  EKCert not set")
-		return &verifier.GetEKCertResponse{}, grpc.Errorf(codes.Internal, fmt.Sprintf("ERROR:  could  EKCert not set"))
+		glog.Errorf("ERROR:  could  EK not set")
+		return &verifier.GetEKResponse{}, grpc.Errorf(codes.Internal, fmt.Sprintf("ERROR:  could  not set"))
 	}
 }
 
@@ -525,16 +537,15 @@ func main() {
 
 	eks, err := tpm.EKs()
 	if err != nil {
-		glog.Fatalf("error gettign EKCert %v", err)
+		glog.Fatalf("error getting EK %v", err)
 	}
 
 	for _, e := range eks {
-		glog.Infof("ECCert Issuer: %s", e.Certificate.Issuer)
+		if e.Certificate != nil {
+			glog.Infof("ECCert with available Issuer: %s", e.Certificate.Issuer)
+		}
 	}
-	// using first ekcert (thats usually the case)
-	if len(eks) == 0 {
-		glog.Fatalf("Unable to find EKCert at index 0 %v", err)
-	}
+
 	ek = eks[0]
 
 	var tlsConfig *tls.Config

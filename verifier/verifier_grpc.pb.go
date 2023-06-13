@@ -19,7 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Verifier_GetEKCert_FullMethodName        = "/verifier.Verifier/GetEKCert"
+	Verifier_GetEK_FullMethodName            = "/verifier.Verifier/GetEK"
 	Verifier_GetAK_FullMethodName            = "/verifier.Verifier/GetAK"
 	Verifier_Attest_FullMethodName           = "/verifier.Verifier/Attest"
 	Verifier_Quote_FullMethodName            = "/verifier.Verifier/Quote"
@@ -33,7 +33,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type VerifierClient interface {
-	GetEKCert(ctx context.Context, in *GetEKCertRequest, opts ...grpc.CallOption) (*GetEKCertResponse, error)
+	GetEK(ctx context.Context, in *GetEKRequest, opts ...grpc.CallOption) (*GetEKResponse, error)
 	GetAK(ctx context.Context, in *GetAKRequest, opts ...grpc.CallOption) (*GetAKResponse, error)
 	Attest(ctx context.Context, in *AttestRequest, opts ...grpc.CallOption) (*AttestResponse, error)
 	Quote(ctx context.Context, in *QuoteRequest, opts ...grpc.CallOption) (*QuoteResponse, error)
@@ -51,9 +51,9 @@ func NewVerifierClient(cc grpc.ClientConnInterface) VerifierClient {
 	return &verifierClient{cc}
 }
 
-func (c *verifierClient) GetEKCert(ctx context.Context, in *GetEKCertRequest, opts ...grpc.CallOption) (*GetEKCertResponse, error) {
-	out := new(GetEKCertResponse)
-	err := c.cc.Invoke(ctx, Verifier_GetEKCert_FullMethodName, in, out, opts...)
+func (c *verifierClient) GetEK(ctx context.Context, in *GetEKRequest, opts ...grpc.CallOption) (*GetEKResponse, error) {
+	out := new(GetEKResponse)
+	err := c.cc.Invoke(ctx, Verifier_GetEK_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +127,7 @@ func (c *verifierClient) Sign(ctx context.Context, in *SignRequest, opts ...grpc
 // All implementations should embed UnimplementedVerifierServer
 // for forward compatibility
 type VerifierServer interface {
-	GetEKCert(context.Context, *GetEKCertRequest) (*GetEKCertResponse, error)
+	GetEK(context.Context, *GetEKRequest) (*GetEKResponse, error)
 	GetAK(context.Context, *GetAKRequest) (*GetAKResponse, error)
 	Attest(context.Context, *AttestRequest) (*AttestResponse, error)
 	Quote(context.Context, *QuoteRequest) (*QuoteResponse, error)
@@ -141,8 +141,8 @@ type VerifierServer interface {
 type UnimplementedVerifierServer struct {
 }
 
-func (UnimplementedVerifierServer) GetEKCert(context.Context, *GetEKCertRequest) (*GetEKCertResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetEKCert not implemented")
+func (UnimplementedVerifierServer) GetEK(context.Context, *GetEKRequest) (*GetEKResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetEK not implemented")
 }
 func (UnimplementedVerifierServer) GetAK(context.Context, *GetAKRequest) (*GetAKResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAK not implemented")
@@ -177,20 +177,20 @@ func RegisterVerifierServer(s grpc.ServiceRegistrar, srv VerifierServer) {
 	s.RegisterService(&Verifier_ServiceDesc, srv)
 }
 
-func _Verifier_GetEKCert_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetEKCertRequest)
+func _Verifier_GetEK_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetEKRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(VerifierServer).GetEKCert(ctx, in)
+		return srv.(VerifierServer).GetEK(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Verifier_GetEKCert_FullMethodName,
+		FullMethod: Verifier_GetEK_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(VerifierServer).GetEKCert(ctx, req.(*GetEKCertRequest))
+		return srv.(VerifierServer).GetEK(ctx, req.(*GetEKRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -329,8 +329,8 @@ var Verifier_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*VerifierServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "GetEKCert",
-			Handler:    _Verifier_GetEKCert_Handler,
+			MethodName: "GetEK",
+			Handler:    _Verifier_GetEK_Handler,
 		},
 		{
 			MethodName: "GetAK",

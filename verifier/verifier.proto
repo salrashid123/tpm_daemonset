@@ -5,7 +5,7 @@ package verifier;
 option go_package = "github.com/salrashid123/tpm_daemonset/verifier";
 
 service Verifier {
-  rpc GetEKCert (GetEKCertRequest) returns (GetEKCertResponse) { }
+  rpc GetEK (GetEKRequest) returns (GetEKResponse) { }
   rpc GetAK (GetAKRequest) returns (GetAKResponse) { }
   rpc Attest (AttestRequest) returns (AttestResponse) { }
   rpc Quote (QuoteRequest) returns (QuoteResponse) { }
@@ -16,10 +16,11 @@ service Verifier {
 }
 
 
-message GetEKCertRequest {}
+message GetEKRequest {}
 
-message GetEKCertResponse {
-  bytes ekCert = 1;
+message GetEKResponse {
+  bytes ekPub = 1;
+  bytes ekCert = 2;
 }
 
 message GetAKRequest {

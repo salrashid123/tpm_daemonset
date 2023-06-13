@@ -89,7 +89,7 @@ var (
 
 	glog.V(10).Infof("     Test signature data:  %s", base64.RawStdEncoding.EncodeToString(signature))
 
-	signingImportBlob, err := server.CreateSigningKeyImportBlob(ekcert.PublicKey, priv, vpcrs)
+	signingImportBlob, err := server.CreateSigningKeyImportBlob(ekPub, priv, vpcrs)
 	if err != nil {
 		glog.Errorf("Unable to CreateImportBlob : %v", err)
 		os.Exit(1)
