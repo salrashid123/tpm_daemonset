@@ -32,9 +32,15 @@ THis isn't so bad because the context files are wrapped such that it can *only* 
 A toto maybe to find someplace else to save thse contexts.
 
 
-#### Support `CreateSigningKeyImportBlob`
+### Use kubernetes service account bearer tokens
 
-Which allows the client to encode an RSA key _into_ the tpm [https://github.com/salrashid123/gcp_tpm_sealed_keys#sealed-asymmetric-key](https://github.com/salrashid123/gcp_tpm_sealed_keys#sealed-asymmetric-key)
+Maybe use kubernetes service account bearer tokens within each grpc call for authentication of the caller.
+
+see [Using kubernetes TokenReviews go api on pod](https://gist.github.com/salrashid123/75c22afcbdbf1b706ab76d9063122429)
+
+### Support `CreateSigningKeyImportBlob`
+
+Which allows the client to encode an RSA key _into_ the tpm [Sealed Asymmetric Key](https://github.com/salrashid123/gcp_tpm_sealed_keys#sealed-asymmetric-key)
 
 the code could be something like this:
 
