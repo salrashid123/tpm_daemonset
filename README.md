@@ -247,7 +247,7 @@ At the time of writing (`6/13/23`), GKE and general GCE VMs do _not_ populate th
 
 What this means is you need to find some alternate way to trust the EKPublic key for remote attestation.
 
-One way maybe to allow the verifier access to read a GCE VM's metadata via GCP APIs (i.e, the verifier would run the gcloud command in following):
+One way maybe to allow the verifier access to read a GCE VM's metadata via GCP APIs (i.e, the verifier would run the gcloud command in following which is similar to the last option described in [TPM Key Attestation](https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/component-updates/tpm-key-attestation#BKMK_DeploymentOverview):
 
 - [GCE EK/AK PubKey and Certs](https://github.com/salrashid123/go_tpm_remote_attestation#ekcert-and-akcert)
 
