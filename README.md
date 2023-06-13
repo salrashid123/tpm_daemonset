@@ -241,7 +241,15 @@ I0613 17:12:31.580026       1 grpc_attestor.go:428] ======= Sign ========
 
 ---
 
-                
+#### EKCert and AKCert on GCE
+
+At the time of writing (`6/13/23`), GKE and general GCE VMs do _not_ populate the provider-signed endorsement or attestation certificates.
+
+What this means is you need to find some alternate way to trust the EKPublic key for remote attestation.
+
+One way maybe to allow the verifier access to read a GCE VM's metadata via GCP APIs (i.e, the verifier would run the gcloud command in following):
+
+- [GCE EK/AK PubKey and Certs](https://github.com/salrashid123/go_tpm_remote_attestation#ekcert-and-akcert)
 
 ##### Instance identity claim for instance_confidentiality
 
