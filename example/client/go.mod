@@ -3,13 +3,12 @@ module main
 go 1.19
 
 require (
-	github.com/golang/glog v1.1.0
+	github.com/golang/glog v1.1.1
 	github.com/google/go-attestation v0.4.4-0.20220404204839-8820d49b18d9
 	github.com/google/go-tpm v0.3.3
 	github.com/google/go-tpm-tools v0.3.12
 	github.com/google/uuid v1.3.0
-	// github.com/salrashid123/tpm_daemonset/verifier
-	//github.com/salrashid123/tpm_daemonset/verifier v0.0.0
+	github.com/salrashid123/tpm_daemonset/verifier v0.0.0-20230613172210-a65057dca301
 	google.golang.org/grpc v1.55.0
 	google.golang.org/protobuf v1.30.0
 )
@@ -30,5 +29,3 @@ require (
 	golang.org/x/text v0.8.0 // indirect
 	google.golang.org/genproto v0.0.0-20230306155012-7f2fa6fef1f4 // indirect
 )
-
-// replace github.com/salrashid123/tpm_daemonset/verifier => ../../verifier
