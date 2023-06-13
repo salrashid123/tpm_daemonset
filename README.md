@@ -37,7 +37,7 @@ option go_package = "github.com/salrashid123/tpm_daemonset/verifier";
 
 service Verifier {
   // get endorsement key
-  rpc GetCert (GetEKCertRequest) returns (GetEKResponse) { }
+  rpc GetEK (GetEKRequest) returns (GetEKResponse) { }
 
   // get an attestation key
   rpc GetAK (GetAKRequest) returns (GetAKResponse) { }
