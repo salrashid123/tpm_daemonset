@@ -10,8 +10,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
-	"strconv"
-	"strings"
 
 	"flag"
 	"fmt"
@@ -48,12 +46,10 @@ var (
 	serverCert   = flag.String("servercert", "certs/server_crt.pem", "Server SSL Certificate")
 	serverKey    = flag.String("serverkey", "certs/server_key.pem", "Server SSL PrivateKey")
 	eventLogPath = flag.String("eventLogPath", "/sys/kernel/security/tpm0/binary_bios_measurements", "Path to the eventlog")
-	pcr          = flag.String("unsealPcrs", "0,7", "pcrs used to unseal against")
 	tpmDevice    = flag.String("tpmDevice", "/dev/tpm0", "TPMPath")
 
 	contextsPath    = flag.String("contextsPath", "/contexts", "Contexts Path")
 	attestationKeys = make(map[string][]byte)
-	pcrList         = []int{}
 
 	handleNames = map[string][]tpm2.HandleType{
 		"all":       {tpm2.HandleTypeLoadedSession, tpm2.HandleTypeSavedSession, tpm2.HandleTypeTransient},
@@ -536,17 +532,10 @@ func main() {
 		glog.Infof("ECCert Issuer: %s", e.Certificate.Issuer)
 	}
 	// using first ekcert (thats usually the case)
-	ek = eks[0]
-
-	glog.V(2).Info("Parsing PCRs EKCert ")
-
-	for _, v := range strings.Split(*pcr, ",") {
-		i, err := strconv.Atoi(v)
-		if err != nil {
-			glog.Fatalf("Unable to  convert pcr to int : %v", err)
-		}
-		pcrList = append(pcrList, int(i))
+	if len(eks) == 0 {
+		glog.Fatalf("Unable to find EKCert at index 0 %v", err)
 	}
+	ek = eks[0]
 
 	var tlsConfig *tls.Config
 	ca, err := ioutil.ReadFile(*caCertTLS)

@@ -39,7 +39,7 @@ spec:
       automountServiceAccountToken: true
       containers:
       - name: app
-        image: docker.io/salrashid123/tpmds-client@sha256:c4a8bb526b9cf9992a65a9d0968777b1d27f1deb4634b3d62d1e08edfceaf2e3
+        image: docker.io/salrashid123/tpmds-client@sha256:5a755395c0045033dc1660cbecfa2de23a9c7c11eb85b7ff80b2237ef438f815
         command:
           - /bin/bash
           - -c

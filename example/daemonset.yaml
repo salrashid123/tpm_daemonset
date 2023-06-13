@@ -65,7 +65,7 @@ spec:
       automountServiceAccountToken: true
       containers:
         - name: server
-          image: index.docker.io/salrashid123/tpmds@sha256:9c27d15aa7b29f4bce3f06fbfe088d40f0d04ed610449e1de7afa38cadde8e55
+          image: index.docker.io/salrashid123/tpmds@sha256:8ec675a96665a67db940cb4a601e8f7b917479ff125c9860603f6508963c3927
           securityContext:
             privileged: true
           ports:

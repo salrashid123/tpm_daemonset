@@ -53,8 +53,7 @@ var (
 	importBlobSecret     = flag.String("importBlobSecret", "G-KaPdSgUkXp2s5v8y/B?E(H+MbQeThW", "secret")
 	expectedPCRMapSHA256 = flag.String("expectedPCRMapSHA256", "0:a0b5ff3383a1116bd7dc6df177c0c2d433b9ee1813ea958fa5d166a202cb2a85", "Sealing and Quote PCRMap (as comma separated key:value).  pcr#:sha256,pcr#sha256.  Default value uses pcr0:sha256")
 
-	u = flag.String("uid", uuid.New().String(), "uid of client")
-
+	u   = flag.String("uid", uuid.New().String(), "uid of client")
 	kid = flag.String("kid", uuid.New().String(), "keyid to save")
 
 	caCertTLS = flag.String("caCertTLS", "certs/root.pem", "CA Certificate to Trust for TLS")
@@ -149,7 +148,9 @@ func main() {
 	glog.V(10).Infof("     EKCert  IssuingCertificateURL %v", fmt.Sprint(ekcert.IssuingCertificateURL))
 
 	gceInfo, err := server.GetGCEInstanceInfo(ekcert)
-	if err == nil {
+	if err != nil {
+		glog.V(10).Infof("     Not on GCE")
+	} else {
 		glog.V(10).Infof("     EKCert  GCE InstanceID %d", gceInfo.InstanceId)
 		glog.V(10).Infof("     EKCert  GCE InstanceName %s", gceInfo.InstanceName)
 		glog.V(10).Infof("     EKCert  GCE ProjectId %s", gceInfo.ProjectId)
@@ -267,17 +268,17 @@ func main() {
 	}
 	glog.V(5).Infof("      Inbound Secret: %s\n", base64.StdEncoding.EncodeToString(mcResponse.Secret))
 
-	glog.V(5).Infof("=============== end Attest ===============")
-
 	if base64.StdEncoding.EncodeToString(mcResponse.Secret) == base64.StdEncoding.EncodeToString(secret) {
 		glog.V(5).Infof("      inbound/outbound Secrets Match; accepting AK")
 	} else {
 		glog.Error("attestation secrets do not match; exiting")
 		os.Exit(1)
 	}
+	glog.V(5).Infof("=============== end Attest ===============")
+
 	glog.V(5).Infof("=============== start Quote/Verify ===============")
 
-	nonce := []byte("foo")
+	nonce := []byte(uuid.New().String())
 	quoteResponse, err := c.Quote(ctx, &verifier.QuoteRequest{
 		Uid:   *u,
 		Nonce: nonce,

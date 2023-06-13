@@ -1,7 +1,7 @@
 There's a lot to do with this:
 
 
-### Support HTTP
+### Support REST
 
   yeah, not everyone uses gRPC
 
@@ -29,7 +29,7 @@ An alternative maybe to write the encrypted contexts to the node's `hostPath` vo
 
 THis isn't so bad because the context files are wrapped such that it can *only* get decrypted on that TPM.  (i.,e you have to be on that tpm or gain access to the files to use them).
 
-A toto maybe to find someplace else to save thse contexts.
+A todo maybe to find someplace else to save these contexts.
 
 
 ### Use kubernetes service account bearer tokens
@@ -120,57 +120,57 @@ func (s *server) ImportSigningKey(ctx context.Context, in *verifier.ImportSignin
 	defer s.mu.Unlock()
 	glog.V(2).Infof("======= ImportSigningKey ========")
 
-	// blob := &pb.ImportBlob{}
+	blob := &pb.ImportBlob{}
 
-	// err := proto.Unmarshal(in.EncryptedSigningKey, blob)
-	// if err != nil {
-	// 	glog.Errorf("ERROR:  unmarshalling encryptedBLob proto %v", err)
-	// 	return &verifier.ImportSigningKeyResponse{}, grpc.Errorf(codes.Internal, fmt.Sprintf("ERROR:  could not unmarshal encryptedBLob proto"))
-	// }
+	err := proto.Unmarshal(in.EncryptedSigningKey, blob)
+	if err != nil {
+		glog.Errorf("ERROR:  unmarshalling encryptedBLob proto %v", err)
+		return &verifier.ImportSigningKeyResponse{}, grpc.Errorf(codes.Internal, fmt.Sprintf("ERROR:  could not unmarshal encryptedBLob proto"))
+	}
 
-	// rwc, err := tpm2.OpenTPM(*tpmDevice)
-	// if err != nil {
-	// 	glog.Errorf("ERROR:  error opening TPM %v", err)
-	// 	return &verifier.ImportSigningKeyResponse{}, grpc.Errorf(codes.Internal, fmt.Sprintf("ERROR:  error opening TPM"))
-	// }
-	// defer rwc.Close()
+	rwc, err := tpm2.OpenTPM(*tpmDevice)
+	if err != nil {
+		glog.Errorf("ERROR:  error opening TPM %v", err)
+		return &verifier.ImportSigningKeyResponse{}, grpc.Errorf(codes.Internal, fmt.Sprintf("ERROR:  error opening TPM"))
+	}
+	defer rwc.Close()
 
-	// ek, err := client.EndorsementKeyRSA(rwc)
-	// if err != nil {
-	// 	glog.Errorf("ERROR:  loading EndorsementKeyRSA %v", err)
-	// 	return &verifier.ImportSigningKeyResponse{}, grpc.Errorf(codes.Internal, fmt.Sprintf("ERROR:  loading EndorsementKeyRSA"))
-	// }
-	// defer ek.Close()
+	ek, err := client.EndorsementKeyRSA(rwc)
+	if err != nil {
+		glog.Errorf("ERROR:  loading EndorsementKeyRSA %v", err)
+		return &verifier.ImportSigningKeyResponse{}, grpc.Errorf(codes.Internal, fmt.Sprintf("ERROR:  loading EndorsementKeyRSA"))
+	}
+	defer ek.Close()
 
-	// key, err := ek.ImportSigningKey(blob)
-	// if err != nil {
-	// 	glog.Errorf("ERROR:  error importing secret %v", err)
-	// 	return &verifier.ImportSigningKeyResponse{}, grpc.Errorf(codes.Internal, fmt.Sprintf("ERROR:  error importing secret"))
-	// }
+	key, err := ek.ImportSigningKey(blob)
+	if err != nil {
+		glog.Errorf("ERROR:  error importing secret %v", err)
+		return &verifier.ImportSigningKeyResponse{}, grpc.Errorf(codes.Internal, fmt.Sprintf("ERROR:  error importing secret"))
+	}
 
-	// importedKeyFile := fmt.Sprintf("%s/%s.%s", *contextsPath, in.Uid, in.Kid)
-	// glog.V(10).Infof("     Saving Key Handle as %s", importedKeyFile)
-	// keyHandle := key.Handle()
-	// defer key.Close()
-	// keyBytes, err := tpm2.ContextSave(rwc, keyHandle)
-	// if err != nil {
-	// 	glog.Errorf("ERROR:  ContextSave failed for keyHandle:: %v", err)
-	// 	return &verifier.ImportSigningKeyResponse{}, grpc.Errorf(codes.FailedPrecondition, fmt.Sprintf("ContextSave failed for keyHandle: %v", err))
-	// }
-	// err = ioutil.WriteFile(importedKeyFile, keyBytes, 0644)
-	// if err != nil {
-	// 	glog.Errorf("ERROR:  FileSave ContextSave failed for keyBytes %v", err)
-	// 	return &verifier.ImportSigningKeyResponse{}, grpc.Errorf(codes.FailedPrecondition, fmt.Sprintf("FileSave ContextSave failed for keyBytes: %v", err))
-	// }
-	// defer tpm2.FlushContext(rwc, keyHandle)
+	importedKeyFile := fmt.Sprintf("%s/%s.%s", *contextsPath, in.Uid, in.Kid)
+	glog.V(10).Infof("     Saving Key Handle as %s", importedKeyFile)
+	keyHandle := key.Handle()
+	defer key.Close()
+	keyBytes, err := tpm2.ContextSave(rwc, keyHandle)
+	if err != nil {
+		glog.Errorf("ERROR:  ContextSave failed for keyHandle:: %v", err)
+		return &verifier.ImportSigningKeyResponse{}, grpc.Errorf(codes.FailedPrecondition, fmt.Sprintf("ContextSave failed for keyHandle: %v", err))
+	}
+	err = ioutil.WriteFile(importedKeyFile, keyBytes, 0644)
+	if err != nil {
+		glog.Errorf("ERROR:  FileSave ContextSave failed for keyBytes %v", err)
+		return &verifier.ImportSigningKeyResponse{}, grpc.Errorf(codes.FailedPrecondition, fmt.Sprintf("FileSave ContextSave failed for keyBytes: %v", err))
+	}
+	defer tpm2.FlushContext(rwc, keyHandle)
 
-	// ss, err := key.SignData([]byte(in.Uid))
-	// if err != nil {
-	// 	glog.Errorf("ERROR:  signing data %v", err)
-	// 	return &verifier.ImportSigningKeyResponse{}, grpc.Errorf(codes.FailedPrecondition, fmt.Sprintf("ERROR:  signing data: %v", err))
-	// }
-	// return &verifier.ImportSigningKeyResponse{
-	// 	Confirmation: ss,
-	// }, nil
+	ss, err := key.SignData([]byte(in.Uid))
+	if err != nil {
+		glog.Errorf("ERROR:  signing data %v", err)
+		return &verifier.ImportSigningKeyResponse{}, grpc.Errorf(codes.FailedPrecondition, fmt.Sprintf("ERROR:  signing data: %v", err))
+	}
+	return &verifier.ImportSigningKeyResponse{
+		Confirmation: ss,
+	}, nil
 }
 ```

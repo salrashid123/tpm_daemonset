@@ -93,13 +93,14 @@ spec:
 * [Sealing RSA and Symmetric keys with GCP vTPMs](https://github.com/salrashid123/gcp_tpm_sealed_keys#sealed-asymmetric-key)
 * [Trusted Platform Module (TPM) recipes with tpm2_tools and go-tpm](https://github.com/salrashid123/tpm2)
 
+also see [TODO.md](TODO.md)
 
 ---
 
 ### Build
 
 You can either use the built image:
-`index.docker.io/salrashid123/tpmds@sha256:9c27d15aa7b29f4bce3f06fbfe088d40f0d04ed610449e1de7afa38cadde8e55`
+`index.docker.io/salrashid123/tpmds@sha256:8ec675a96665a67db940cb4a601e8f7b917479ff125c9860603f6508963c3927`
 
 or the daemonset was built using Kaniko:
 
@@ -159,7 +160,7 @@ Note that each invocation returns the EKCert issued to the same NodeVM (in our a
 The EKCert shown in this repo uses the specific certificates signed by google and is verified by the client itself.
 
 ```log
-root@app-5565d6b794-nfb66:/# /grpc_verifier -host tpm-service:50051  -uid 121123 -kid 213412331 --v=10 -alsologtostderr
+root@app-5565d6b794-nfb66:/# go run grpc_verifier.go -host tpm-service:50051  -uid 121123 -kid 213412331 --v=10 -alsologtostderr
 
 I0612 12:44:36.857804      13 grpc_verifier.go:119] RPC HealthChekStatus:SERVING
 I0612 12:44:36.858286      13 grpc_verifier.go:121] =============== start GetEKCert ===============
@@ -352,6 +353,50 @@ us-central1-c....m.et..mineral-minutia-820..?m...(q*.(gke-cluster-1-default-pool
         99:66:9b:30
 
 ```
+
+For the other attributes, they're more standard:
+
+* `X509v3 Extended Key Usage`
+
+  `2.23.133.8.1` is the OID [tcg-kp-EKCertificate](https://oid-rep.orange-labs.fr/get/2.23.133.8.1)
+  from [TCG specification](https://trustedcomputinggroup.org/wp-content/uploads/IWG_Platform_Certificate_Profile_v1p1_r15_pubrev.pdf) (line 960)
+
+* `Authority Information Access`
+
+  to verify the chain:
+
+```bash
+  wget https://pki.goog/cloud_integrity/tpm_ek_intermediate_3.crt
+  openssl x509 -in tpm_ek_intermediate_3.crt -text -noout
+  wget https://pki.goog/cloud_integrity/tpm_ek_root_1.crt
+   
+  # to pem
+  openssl x509 -inform der -in tpm_ek_intermediate_3.crt -outform pem -out tpm_ek_intermediate_3.pem
+  openssl x509 -inform der -in tpm_ek_root_1.crt -outform pem -out tpm_ek_root_1.pem
+
+  openssl verify -show_chain -verbose -CAfile <(cat tpm_ek_intermediate_3.pem tpm_ek_root_1.pem) /tmp/ekcert.pem
+      /tmp/ekcert.pem: OK
+      Chain:
+      depth=0:  (untrusted)
+      depth=1: C = US, ST = California, L = Mountain View, O = Google LLC, OU = Cloud, CN = "tpm_ek_v1_cloud_host-signer-0-2021-10-12T04:22:11-07:00 K:1, 3:nbvaGZFLcuc:0:18"
+      depth=2: C = US, ST = California, L = Mountain View, O = Google LLC, OU = Cloud, CN = "tpm_ek_v1_cloud_host_root-signer-0-2018-04-06T10:58:26-07:00 K:1, 1:Pw003HsFYO4:0:18"
+```
+
+* `X509v3 Subject Alternative Name`
+
+  These are OIDs for the TPM itself:
+
+  * [2.23.133.2.1](http://oid-info.com/get/2.23.133.2.1): `tcg-at-tpmManufacturer`   `hex(474F4F47)` which is `GOOG`
+  * [2.23.133.2.2](http://oid-info.com/get/2.23.133.2.2): `tcg-at-tpmModel`  which is `vTPM`
+  * [2.23.133.2.3](http://oid-info.com/get/2.23.133.2.3): `tcg-at-tpmVersion` which is `FirmwareVersion: id:20160511`
+
+  That just tells us that this certificate was part of a Google TPM (see [TCG TPM Vendor ID Registry ](https://trustedcomputinggroup.org/wp-content/uploads/TCG-TPM-VendorIDRegistry-v1p06-r0p91-pub.pdf))
+
+
+* *`X509v3 Subject Directory Attributes`
+
+  is actually `OID 2.23.133.2.16:   tcg-at-tpmSpecification`  which you can see in the asn1 parser output below.  The values denotes the TPM level (`TPM 2.0`)  
+                    
 
 ##### Instance identity claim for instance_confidentiality
 
