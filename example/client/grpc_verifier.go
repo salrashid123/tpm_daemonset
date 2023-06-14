@@ -121,12 +121,89 @@ func main() {
 		os.Exit(1)
 	}
 
-	ekPubPEM := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "PUBLIC KEY",
-			Bytes: ekResponse.EkPub,
-		},
-	)
+	// first try to verify the ekcert (if available; its not on GCP)
+
+	var ekPubPEM []byte
+	if len(ekResponse.EkCert) > 0 {
+		ekcert, err := x509.ParseCertificate(ekResponse.EkCert)
+		if err != nil {
+			glog.Errorf("ERROR:   ParseCertificate: %v", err)
+			os.Exit(1)
+		}
+		spubKey := ekcert.PublicKey.(*rsa.PublicKey)
+
+		skBytes, err := x509.MarshalPKIXPublicKey(spubKey)
+		if err != nil {
+			glog.Errorf("ERROR:  could  MarshalPKIXPublicKey: %v", err)
+			os.Exit(1)
+		}
+		ekPubPEM = pem.EncodeToMemory(
+			&pem.Block{
+				Type:  "PUBLIC KEY",
+				Bytes: skBytes,
+			},
+		)
+
+		glog.V(10).Infof("     EKCert  Issuer %v", ekcert.Issuer)
+		glog.V(10).Infof("     EKCert  IssuingCertificateURL %v", fmt.Sprint(ekcert.IssuingCertificateURL))
+
+		gceInfo, err := server.GetGCEInstanceInfo(ekcert)
+		if err == nil {
+			glog.V(10).Infof("     EKCert  GCE InstanceID %d", gceInfo.InstanceId)
+			glog.V(10).Infof("     EKCert  GCE InstanceName %s", gceInfo.InstanceName)
+			glog.V(10).Infof("     EKCert  GCE ProjectId %s", gceInfo.ProjectId)
+		}
+
+		glog.V(10).Infof("    EkCert Public Key \n%s\n", ekPubPEM)
+		// todo verify the ekcert chain
+		// glog.V(10).Info("    Verifying EKCert")
+
+		// rootPEM, err := ioutil.ReadFile(*ekRootCA)
+		// if err != nil {
+		// 	glog.Errorf("Error Reading root %v", err)
+		// 	os.Exit(1)
+		// }
+
+		// roots := x509.NewCertPool()
+		// ok := roots.AppendCertsFromPEM([]byte(rootPEM))
+		// if !ok {
+		// 	glog.Errorf("failed to parse root certificate")
+		// 	os.Exit(1)
+		// }
+
+		// interPEM, err := ioutil.ReadFile(*ekIntermediate)
+		// if err != nil {
+		// 	glog.Errorf("Error Reading intermediate %v", err)
+		// 	os.Exit(1)
+		// }
+
+		// inters := x509.NewCertPool()
+		// ok = inters.AppendCertsFromPEM(interPEM)
+		// if !ok {
+		// 	glog.Errorf("failed to parse intermediate certificate")
+		// 	os.Exit(1)
+		// }
+
+		// ekcert.UnhandledCriticalExtensions = []asn1.ObjectIdentifier{}
+		// _, err = ekcert.Verify(x509.VerifyOptions{
+		// 	Roots:         roots,
+		// 	Intermediates: inters,
+		// 	KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+		// })
+		// if err != nil {
+		// 	glog.Errorf("Error Reading intermediate %v", err)
+		// 	os.Exit(1)
+		// }
+		// glog.V(10).Info("    EKCert Verified")
+	} else {
+		ekPubPEM = pem.EncodeToMemory(
+			&pem.Block{
+				Type:  "PUBLIC KEY",
+				Bytes: ekResponse.EkPub,
+			},
+		)
+	}
+
 	glog.V(5).Infof("     EKPub: \n%s\n", ekPubPEM)
 
 	bblock, _ := pem.Decode(ekPubPEM)
