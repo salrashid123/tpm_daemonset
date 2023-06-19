@@ -251,39 +251,41 @@ One way maybe to allow the verifier access to read a GCE VM's metadata via GCP A
 
 - [GCE EK/AK PubKey and Certs](https://github.com/salrashid123/go_tpm_remote_attestation#ekcert-and-akcert)
 
-##### Instance identity claim for instance_confidentiality
+#### Testing remote clients
 
-As a side note, on GCP the daemonset or application pod can access the instances's [indentity_document](https://cloud.google.com/compute/docs/instances/verifying-instance-identity#payload), which carries
-a [google-signed OIDC token](https://github.com/salrashid123/google_id_token) denoting the node and vm instance is running in confidential mode (`instance_confidentiality`).
+If you want to run a verifier from outside the GKE cluster (i.,e from your laptop), enable the `LoadBalancer` construct
 
+```yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tpm-service-external
+spec:
+  type: LoadBalancer  
+  selector:
+    name: tpm-ds
+  ports:
+  - name: http-port
+    protocol: TCP
+    port: 50051
 
 ```
-gke-cluster-1-default-pool-0b6d4c85-j3ln ~ # curl -H "Metadata-Flavor: Google" 'http://metadata/computeMetadata/v1/instance/service-accounts/default/identity?audience=https://foo.bar&format=full'
 
-{
-  "alg": "RS256",
-  "kid": "85ba9313fd7a7d4afa84884abcc8403004363180",
-  "typ": "JWT"
-}
-{
-  "aud": "https://foo.bar",
-  "azp": "111864790111956957508",
-  "email": "248066739582-compute@developer.gserviceaccount.com",
-  "email_verified": true,
-  "exp": 1686680213,
-  "google": {
-    "compute_engine": {
-      "instance_confidentiality": 1,
-      "instance_creation_timestamp": 1686672174,
-      "instance_id": "915243480767606221",
-      "instance_name": "gke-cluster-1-default-pool-0b6d4c85-j3ln",
-      "project_id": "fabled-ray-104117",
-      "project_number": 248066739582,
-      "zone": "us-central1-b"
-    }
-  },
-  "iat": 1686676613,
-  "iss": "https://accounts.google.com",
-  "sub": "111864790111956957508"
-}
+and disable the `NetworkPolicy` which would otherwise only allow the internal traffic
+
+Apply 
+```bash
+
+$ gcloud compute firewall-rules create allow-tpm-verifier  --action allow --direction INGRESS   --source-ranges 0.0.0.0/0    --rules tcp:50051
+
+$ kubectl delete networkpolicy/allow-tpm   
+
+$ kubectl get svc
+  NAME                           TYPE           CLUSTER-IP     EXTERNAL-IP    PORT(S)           AGE     SELECTOR
+  service/tpm-service-external   LoadBalancer   10.64.10.161   34.28.252.62   50051:32280/TCP   6m19s   name=tpm-ds
+
+# use external LB address
+$ go run grpc_verifier.go -host 34.28.252.62:50051    -uid 121123 -kid 213412331    -caCertTLS ../../certs/root.pem --v=10 -alsologtostderr
 ```
+
