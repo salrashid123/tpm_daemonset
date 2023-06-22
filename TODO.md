@@ -38,6 +38,16 @@ Maybe use kubernetes service account bearer tokens within each grpc call for aut
 
 see [Using kubernetes TokenReviews go api on pod](https://gist.github.com/salrashid123/75c22afcbdbf1b706ab76d9063122429)
 
+
+### Sign with Atteststation Signing Key
+
+GCE VMs automatically include a the endorsement signing key saved to NV.
+
+This can be used to confirm signatures occured on a TPM without direct attestation.
+
+see [ak_sign_nv](https://github.com/salrashid123/tpm2/tree/master/ak_sign_nv)
+
+
 ### Support `CreateSigningKeyImportBlob`
 
 Which allows the client to encode an RSA key _into_ the tpm [Sealed Asymmetric Key](https://github.com/salrashid123/gcp_tpm_sealed_keys#sealed-asymmetric-key)
