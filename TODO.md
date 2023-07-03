@@ -39,6 +39,53 @@ Maybe use kubernetes service account bearer tokens within each grpc call for aut
 see [Using kubernetes TokenReviews go api on pod](https://gist.github.com/salrashid123/75c22afcbdbf1b706ab76d9063122429)
 
 
+### Use GCE Instance Identity document as confidential VM proxy
+
+If all you want to do is to have a google-signed JWT that asserts "this vm with instanceID=abc in project=efg in zone=us-central1-a is running in confidential VM", then theres a really non-cryptographic solution:
+
+* Just use the gce [instance identity document](https://cloud.google.com/compute/docs/instances/verifying-instance-identity#verify_signature)
+
+
+```bash
+gcloud compute instances create cvm   --machine-type=n2d-standard-2  --zone "us-central1-a"   --confidential-compute --maintenance-policy=TERMINATE --image-family=ubuntu-2204-lts   --image-project=confidential-vm-images
+
+gcloud compute ssh cvm
+
+curl -H "Metadata-Flavor: Google" 'http://metadata/computeMetadata/v1/instance/service-accounts/default/identity?audience=http://foo.bar&format=full'
+```
+gives json claims `"instance_confidentiality": 1,` which signals confidential vm is active
+
+```json
+{
+  "alg": "RS256",
+  "kid": "99bcb069340a3f147462794dfefa75e799613634",
+  "typ": "JWT"
+}.
+{
+  "aud": "http://foo.bar",
+  "azp": "112179062720391305885",
+  "email": "1071284184436-compute@developer.gserviceaccount.com",
+  "email_verified": true,
+  "exp": 1688417242,
+  "google": {
+    "compute_engine": {
+      "instance_confidentiality": 1,
+      "instance_creation_timestamp": 1688413580,
+      "instance_id": "4080561024171678567",
+      "instance_name": "cvm",
+      "project_id": "mineral-minutia-820",
+      "project_number": 1071284184436,
+      "zone": "us-central1-a"
+    }
+  },
+  "iat": 1688413642,
+  "iss": "https://accounts.google.com",
+  "sub": "112179062720391305885"
+}
+```
+
+which a verifier can just check separately [Authenticating using Google OpenID Connect Tokens](https://github.com/salrashid123/google_id_token)
+
 ### Sign with Atteststation Signing Key
 
 GCE VMs automatically include a the endorsement signing key saved to NV.
