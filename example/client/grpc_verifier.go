@@ -13,6 +13,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"flag"
 	"fmt"
 	"hash"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/go-attestation/attest"
+	attestpb "github.com/google/go-tpm-tools/proto/attest"
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/uuid"
 
@@ -52,12 +54,12 @@ var (
 	u   = flag.String("uid", uuid.New().String(), "uid of client")
 	kid = flag.String("kid", uuid.New().String(), "keyid to save")
 
-	caCertTLS = flag.String("caCertTLS", "certs/root.pem", "CA Certificate to Trust for TLS")
-
-	letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-	address     = flag.String("host", "localhost:50051", "host:port of Attestor")
-	serverName  = flag.String("serverName", "attestor.esodemoapp2.com", "SNI")
-	handleNames = map[string][]tpm2.HandleType{
+	caCertTLS     = flag.String("caCertTLS", "certs/root.pem", "CA Certificate to Trust for TLS")
+	confirmGCESEV = flag.Bool("confirmGCESEV", false, "Confirm if GCE SEV Status is active")
+	letterRunes   = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	address       = flag.String("host", "localhost:50051", "host:port of Attestor")
+	serverName    = flag.String("serverName", "attestor.esodemoapp2.com", "SNI")
+	handleNames   = map[string][]tpm2.HandleType{
 		"all":       {tpm2.HandleTypeLoadedSession, tpm2.HandleTypeSavedSession, tpm2.HandleTypeTransient},
 		"loaded":    {tpm2.HandleTypeLoadedSession},
 		"saved":     {tpm2.HandleTypeSavedSession},
@@ -388,6 +390,25 @@ func main() {
 		glog.Errorf("Quote Verify Failed: %v", err)
 		os.Exit(1)
 	}
+
+	if *confirmGCESEV {
+		glog.V(5).Infof("     PCR and eventlogs verified, assessing SEV Status for GCE:")
+		for _, e := range el.Events(attest.HashSHA256) {
+			// eventTypes aren't exported enums https://github.com/google/go-attestation/blob/master/attest/internal/events.go#L70
+			// so match as string
+			// review: https://github.com/google/go-attestation/blob/master/docs/event-log-disclosure.md#event-type-and-verification-footguns
+			//   https://trustedcomputinggroup.org/wp-content/uploads/TCG-Guidance-Integrity-Measurements-Event-Log-Processing_v1_r0p118_24feb2022-1.pdf
+			if e.Index == 0 && e.Type.String() == "EV_NONHOST_INFO" {
+				sevStatus, err := parseGCENonHostInfo(e.Data)
+				if err != nil {
+					glog.Errorf("Error parsing SEV Status: %v", err)
+					os.Exit(1)
+				}
+				glog.V(5).Infof("     EV SevStatus: %s\n", sevStatus.String())
+			}
+		}
+	}
+
 	glog.V(5).Infof("=============== end Quote/Verify ===============")
 
 	glog.V(5).Infof("=============== start ImportBlob ===============")
@@ -524,4 +545,21 @@ func getPCRMap(algo tpm.HashAlgo) (map[uint32][]byte, []byte, error) {
 		return nil, nil, fmt.Errorf(" PCRMap is null")
 	}
 	return pcrMap, hsh.Sum(nil), nil
+}
+
+// from https://github.com/google/go-tpm-tools/blob/master/server/policy_constants.go#L162
+func parseGCENonHostInfo(nonHostInfo []byte) (attestpb.GCEConfidentialTechnology, error) {
+	prefixLen := len(server.GCENonHostInfoSignature)
+	if len(nonHostInfo) < (prefixLen + 1) {
+		return attestpb.GCEConfidentialTechnology_NONE, fmt.Errorf("length of GCE Non-Host info (%d) is too short", len(nonHostInfo))
+	}
+
+	if !bytes.Equal(nonHostInfo[:prefixLen], server.GCENonHostInfoSignature) {
+		return attestpb.GCEConfidentialTechnology_NONE, errors.New("prefix for GCE Non-Host info is missing")
+	}
+	tech := nonHostInfo[prefixLen]
+	if tech > byte(attestpb.GCEConfidentialTechnology_AMD_SEV_SNP) || tech == byte(3) {
+		return attestpb.GCEConfidentialTechnology_NONE, fmt.Errorf("unknown GCE Confidential Technology: %d", tech)
+	}
+	return attestpb.GCEConfidentialTechnology(tech), nil
 }

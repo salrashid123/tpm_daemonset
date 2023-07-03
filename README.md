@@ -289,3 +289,32 @@ $ kubectl get svc
 $ go run grpc_verifier.go -host 34.28.252.62:50051    -uid 121123 -kid 213412331    -caCertTLS ../../certs/root.pem --v=10 -alsologtostderr
 ```
 
+#### EventLog
+
+The quote-verify step provides the full eventlog which is validated against all PCR values.
+
+A verifier can use the eventlog to check for certain measurements in an easier to read format than just trusting a sumtotal of a given PCR hash.
+
+As an example, see [TPM EventLog value for GCE Confidential VMs (SEV)](https://gist.github.com/salrashid123/0c7a4a6f7465cff19d05ac50d238cd57)
+
+Also see:
+
+* [TCG Guidance on Integrity Measurements and Event Log Processing (pg15)](https://trustedcomputinggroup.org/wp-content/uploads/TCG-Guidance-Integrity-Measurements-Event-Log-Processing_v1_r0p118_24feb2022-1.pdf)
+* [Verifying TPM Boot Events and Untrusted Metadata](https://github.com/google/go-attestation/blob/master/docs/event-log-disclosure.md#event-type-and-verification-footguns)
+
+#### TLS with Attested keys
+
+The proto definition 
+
+```proto
+  //  generate a new RSA key embedded on the TPM
+  rpc NewKey (NewKeyRequest) returns (NewKeyResponse) { }
+```
+
+returns a new RSA key thats bound to the TPM and attested by the attestation key (meaning you know it exists on the node).
+
+With a small modification to return an Elliptic Key instead of an RSA one could allow the vm to start a _new TLS Socket_ that uses the private key on the tpm.
+
+For an example of that, see
+
+* [TPM based TLS using Attested Keys](https://github.com/salrashid123/tls_ak)
