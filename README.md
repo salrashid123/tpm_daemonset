@@ -251,6 +251,8 @@ One way maybe to allow the verifier access to read a GCE VM's metadata via GCP A
 
 - [GCE EK/AK PubKey and Certs](https://github.com/salrashid123/go_tpm_remote_attestation#ekcert-and-akcert)
 
+for a snippet on using the getShieldedIdentity API in go, see: [Using GCE APIs to retrieve EKPub](https://gist.github.com/salrashid123/4cf27b67f7d93f6cccde4276a4708820)
+
 #### Testing remote clients
 
 If you want to run a verifier from outside the GKE cluster (i.,e from your laptop), enable the `LoadBalancer` construct
