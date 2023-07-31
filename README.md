@@ -93,16 +93,17 @@ spec:
 * [Sealing RSA and Symmetric keys with GCP vTPMs](https://github.com/salrashid123/gcp_tpm_sealed_keys#sealed-asymmetric-key)
 * [Trusted Platform Module (TPM) recipes with tpm2_tools and go-tpm](https://github.com/salrashid123/tpm2)
 
-also see [TODO.md](TODO.md)
+see [TODO.md](TODO.md)
 
 ---
 
 ### Build
 
 You can either use the built image:
-`index.docker.io/salrashid123/tpmds@sha256:ab96dceac23dcc4171dd9556e2c1d22033f21261b1d90ce643a129d46d1878a4`
 
-or the daemonset was built using Kaniko:
+* `index.docker.io/salrashid123/tpmds@sha256:ab96dceac23dcc4171dd9556e2c1d22033f21261b1d90ce643a129d46d1878a4`
+
+or the daemonset was built and [pushed](https://github.com/GoogleContainerTools/kaniko/blob/main/README.md#pushing-to-docker-hub) using Kaniko:
 
 ```bash
  docker run   \
@@ -290,6 +291,20 @@ $ kubectl get svc
 # use external LB address
 $ go run grpc_verifier.go -host 34.28.252.62:50051    -uid 121123 -kid 213412331    -caCertTLS ../../certs/root.pem --v=10 -alsologtostderr
 ```
+
+
+#### uid and kid Parameters
+
+* **uid**: The `uid` field indicates to the daemonset the AK reference to load and if the reference already exists, to reuse that.  For example, if a client sends `uid=121123` as part of `GetAK` or other operations like `Quote`,  the daemonset will look to see if an AK with that uid's value was created yet on the filesystem at `contextPath/121123.ak`.  If the AK does not exists, the daemonset create a *new* attestation key and save that to disk.   
+
+  If the file exists, the daemonset will reuse that for further operations.   In a way, each pod within a node should use the same UID value if you want each pod to use the same attestation key.
+
+  Also see [TODO.md#context-volume](TODO.md#context-volume)
+
+* **kid**: The `kid` field is similar to the `uid` except that the keyid is used when creating a `NewKey`.  If  `uid=121123` and `kid=213412331` value is sent for operations like `NewKey` or `Sign`, the daemonset will look for the key at `contextPath/121123.213412331` and if it does not exist, create a new one.
+
+
+The specific scheme for uid and kid writes to disk but you are free to abstract this part out and use any other keying scheme or persistence
 
 #### EventLog
 
