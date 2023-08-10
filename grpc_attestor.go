@@ -33,10 +33,12 @@ import (
 
 	"github.com/google/go-attestation/attest"
 	"github.com/google/go-tpm-tools/client"
-	"github.com/google/go-tpm/tpm2"
+	"github.com/google/go-tpm/legacy/tpm2"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+
+	"cloud.google.com/go/compute/metadata"
 )
 
 var (
@@ -490,6 +492,95 @@ func (s *server) Sign(ctx context.Context, in *verifier.SignRequest) (*verifier.
 	return &verifier.SignResponse{
 		Signed: sig,
 	}, nil
+}
+
+func (s *server) GetGCEEKSigningKey(ctx context.Context, in *verifier.GetGCEEKSigningKeyRequest) (*verifier.GetGCEEKSigningKeyResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	glog.V(2).Infof("======= GetGCEEKSigningKey ========")
+
+	if !metadata.OnGCE() {
+		glog.Errorf("ERROR:  Not on GCE")
+		return &verifier.GetGCEEKSigningKeyResponse{}, grpc.Errorf(codes.Internal, fmt.Sprintf("ERROR:  not on GCE"))
+	}
+
+	rwc, err := tpm2.OpenTPM(*tpmDevice)
+	if err != nil {
+		glog.Errorf("ERROR:  could not open tpm device: %v", err)
+		return &verifier.GetGCEEKSigningKeyResponse{}, grpc.Errorf(codes.Internal, fmt.Sprintf("ERROR:  Error opening tpm device"))
+
+	}
+	defer func() {
+		if err := rwc.Close(); err != nil {
+			glog.Errorf("%v\ncan't close TPM %q: %v", *tpmDevice, err)
+		}
+	}()
+
+	kk, err := client.EndorsementKeyFromNvIndex(rwc, client.GceAKTemplateNVIndexRSA)
+	if err != nil {
+		glog.Errorf("ERROR:  could not get EndorsementKeyFromNvIndex: %v", err)
+		return &verifier.GetGCEEKSigningKeyResponse{}, grpc.Errorf(codes.Internal, fmt.Sprintf("ERROR:  not on GCE"))
+	}
+	defer kk.Close()
+	pubKey := kk.PublicKey().(*rsa.PublicKey)
+	akBytes, err := x509.MarshalPKIXPublicKey(pubKey)
+	if err != nil {
+		glog.Errorf("ERROR:  could not MarshalPKIXPublicKey: %v", err)
+		return &verifier.GetGCEEKSigningKeyResponse{}, grpc.Errorf(codes.Internal, fmt.Sprintf("ERROR:   could not MarshalPKIXPublicKey"))
+	}
+	akPubPEM := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "PUBLIC KEY",
+			Bytes: akBytes,
+		},
+	)
+	glog.V(10).Infof("     Signing PEM \n%s", string(akPubPEM))
+
+	return &verifier.GetGCEEKSigningKeyResponse{
+		Public: akPubPEM,
+	}, nil
+}
+
+func (s *server) SignGCEEK(ctx context.Context, in *verifier.SignGCEEKRequest) (*verifier.SignGCEEKResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	glog.V(2).Infof("======= SignGCEEK ========")
+
+	if !metadata.OnGCE() {
+		glog.Errorf("ERROR:  Not on GCE")
+		return &verifier.SignGCEEKResponse{}, grpc.Errorf(codes.Internal, fmt.Sprintf("ERROR:  not on GCE"))
+	}
+
+	rwc, err := tpm2.OpenTPM(*tpmDevice)
+	if err != nil {
+		glog.Errorf("ERROR:  could not open tpm device: %v", err)
+		return &verifier.SignGCEEKResponse{}, grpc.Errorf(codes.Internal, fmt.Sprintf("ERROR:  Error opening tpm device"))
+
+	}
+	defer func() {
+		if err := rwc.Close(); err != nil {
+			glog.Errorf("%v\ncan't close TPM %q: %v", *tpmDevice, err)
+		}
+	}()
+
+	kk, err := client.EndorsementKeyFromNvIndex(rwc, client.GceAKTemplateNVIndexRSA)
+	if err != nil {
+		glog.Errorf("ERROR:  could not get EndorsementKeyFromNvIndex: %v", err)
+		return &verifier.SignGCEEKResponse{}, grpc.Errorf(codes.Internal, fmt.Sprintf("ERROR:  Error reading EndorsementKeyFromNvIndex"))
+	}
+	defer kk.Close()
+
+	r, err := kk.SignData(in.Data)
+	if err != nil {
+		glog.Errorf("ERROR:  error singing with go-tpm-tools: %v", err)
+		return &verifier.SignGCEEKResponse{}, grpc.Errorf(codes.Internal, fmt.Sprintf("ERROR:  could not sign with EndorsementKeyFromNvIndex"))
+
+	}
+
+	return &verifier.SignGCEEKResponse{
+		Signed: r,
+	}, nil
+
 }
 
 func main() {

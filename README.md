@@ -61,6 +61,12 @@ service Verifier {
 
   // use embedded TPM rsa key to sign data
   rpc Sign (SignRequest) returns (SignResponse) { }
+
+  // (gce only) retrieve the GCE EK Signing Public Key in PEM format
+  rpc GetGCEEKSigningKey (GetGCEEKSigningKeyRequest) returns (GetGCEEKSigningKeyResponse) { }
+
+  // (gce only) sign data using GCE EK Signing Key
+  rpc SignGCEEK (SignGCEEKRequest) returns (SignGCEEKResponse) { }
 }
 ```
 
@@ -101,7 +107,7 @@ see [TODO.md](TODO.md)
 
 You can either use the built image:
 
-* `index.docker.io/salrashid123/tpmds@sha256:ab96dceac23dcc4171dd9556e2c1d22033f21261b1d90ce643a129d46d1878a4`
+* `index.docker.io/salrashid123/tpmds@sha256:0c1bc5fc06333148adaa7a7a41858d458459da08da9529ae1b815e9e6050d7dd`
 
 or the daemonset was built and [pushed](https://github.com/GoogleContainerTools/kaniko/blob/main/README.md#pushing-to-docker-hub) using Kaniko:
 
@@ -289,6 +295,7 @@ $ kubectl get svc
   service/tpm-service-external   LoadBalancer   10.64.10.161   34.28.252.62   50051:32280/TCP   6m19s   name=tpm-ds
 
 # use external LB address
+$ cd client/
 $ go run grpc_verifier.go -host 34.28.252.62:50051    -uid 121123 -kid 213412331    -caCertTLS ../../certs/root.pem --v=10 -alsologtostderr
 ```
 
@@ -318,6 +325,91 @@ Also see:
 
 * [TCG Guidance on Integrity Measurements and Event Log Processing (pg15)](https://trustedcomputinggroup.org/wp-content/uploads/TCG-Guidance-Integrity-Measurements-Event-Log-Processing_v1_r0p118_24feb2022-1.pdf)
 * [Verifying TPM Boot Events and Untrusted Metadata](https://github.com/google/go-attestation/blob/master/docs/event-log-disclosure.md#event-type-and-verification-footguns)
+
+#### Using GCE Endorsement Signing Key
+
+GCE instances encodes an Endorsement Signing Key into NV on boot.  You can use this to sign some data and later on verify that a specific TPM was involved in the operation.
+
+- [Retrieving endorsement keys](https://cloud.google.com/compute/shielded-vm/docs/retrieving-endorsement-key)
+
+For example, the folloing GKE node has the EK encryption and signing keys:
+
+```bash
+$ gcloud compute instances list
+NAME                                      ZONE           MACHINE_TYPE    PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP     STATUS
+gke-cluster-1-default-pool-d1f70d2f-bxvt  us-central1-a  n2d-standard-2               10.128.0.11  34.173.154.16   RUNNING
+gke-cluster-1-default-pool-400f6da7-fml2  us-central1-b  n2d-standard-2               10.128.0.9   34.122.137.169  RUNNING
+gke-cluster-1-default-pool-310795fa-shpr  us-central1-c  n2d-standard-2               10.128.0.10  34.67.79.116    RUNNING
+
+
+$ gcloud compute instances get-shielded-identity gke-cluster-1-default-pool-310795fa-shpr --zone=us-central1-c
+encryptionKey:
+  ekPub: |
+    -----BEGIN PUBLIC KEY-----
+    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxS9bBn5H+FZ3e54RugUa
+    nLEjedzHnB0DGa7+sLuaVQQejtRLkZiSvS5bwSdeszAzA/yBzEmcj0Sspy5yUiLd
+    h80zlTHiclG1zba0eZBft5hoLe8sPkLHv+IkvWbPNz355j0t/73UxlKxBDyuJW1I
+    AH6Bw8AbmvcTNzWPgXWB2hLaPP48E//1wHmUpKNJ9fhd4Gqt2AYbRcQL76luN7RT
+    D0El8RsrdMVZvJZ3XgWFcFtg0CN+QeqYsiD6N2JvlOjoEtbyGHJHHfCj4qINvku/
+    OPRIWwRRH8i7+HzSVmW2/ui0Bydbe5c/aQNbjOyMI64wdaXePvDz/RkvUYHgEW5M
+    XQIDAQAB
+    -----END PUBLIC KEY-----
+kind: compute#shieldedInstanceIdentity
+signingKey:
+  ekPub: |
+    -----BEGIN PUBLIC KEY-----
+    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyHxwo4A5Z4bcXEyJgbmQ
+    srCANmWiuBKJ7fVsPNjtGxAn/Ma33q7XpjfXqrcPcIwheFBU29Bp8hLmWPpmTi4l
+    1KU/TNT2n/c2zEAUZtWRVYGXtjvSHlMw4nkV2lB5RgC4zFxWKnxUdsOzqpb7rxAq
+    /tRPMzNb6WDSLssuGcihnDIKdKJXOiHSOXQMgzm4z3Zo2OzoCrPGZKZpUPFz5Ics
+    pswM5FE0vDz5dpsc6sDg046ebO5cfGjbeEwSAFDuj0Z8NoSGlXjtrQpTgmhItkET
+    OnLzPgARivZDBj9jq4BLJUMFEPAnGZrbUY6gNhsVzKxFt2MWutfnV0FCB7aueoJ9
+    cQIDAQAB
+    -----END PUBLIC KEY-----
+```
+
+So if you invoke the `GetGCEEKSigningKey` operation followed up by `SignGCEEK`
+
+```proto
+  // (gce only) retrieve the GCE EK Signing Public Key in PEM format
+  rpc GetGCEEKSigningKey (GetGCEEKSigningKeyRequest) returns (GetGCEEKSigningKeyResponse) { }
+
+  // (gce only) sign data using GCE EK Signing Key
+  rpc SignGCEEK (SignGCEEKRequest) returns (SignGCEEKResponse) { }
+}
+```
+
+you'll see a signature issued by the Signing EK.  The sample client provided in this repo can invoke these api operations by setting the `-signUsingEK` option
+
+
+```log
+$ go run grpc_verifier.go -host 34.132.226.193:50051    -uid 121123 -kid 213412331  \
+     -caCertTLS ../../certs/root.pem --v=20 -alsologtostderr -signUsingEK
+
+I0809 06:47:53.148829  108841 grpc_verifier.go:514] =============== start Sign with EK ===============
+I0809 06:47:53.425790  108841 grpc_verifier.go:522]      EK Signing Public 
+-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyHxwo4A5Z4bcXEyJgbmQ
+srCANmWiuBKJ7fVsPNjtGxAn/Ma33q7XpjfXqrcPcIwheFBU29Bp8hLmWPpmTi4l
+1KU/TNT2n/c2zEAUZtWRVYGXtjvSHlMw4nkV2lB5RgC4zFxWKnxUdsOzqpb7rxAq
+/tRPMzNb6WDSLssuGcihnDIKdKJXOiHSOXQMgzm4z3Zo2OzoCrPGZKZpUPFz5Ics
+pswM5FE0vDz5dpsc6sDg046ebO5cfGjbeEwSAFDuj0Z8NoSGlXjtrQpTgmhItkET
+OnLzPgARivZDBj9jq4BLJUMFEPAnGZrbUY6gNhsVzKxFt2MWutfnV0FCB7aueoJ9
+cQIDAQAB
+-----END PUBLIC KEY-----
+I0809 06:47:53.425968  108841 grpc_verifier.go:536] =============== start Sign ===============
+I0809 06:47:53.733437  108841 grpc_verifier.go:547]      signature: anAJizfCHrEjp7kwzW9WJ4PuOFRcTgVQJcwvKRh/iyTyZd5j1Fud1QKMdfkGwGu2USTGJ5FLRshiqSO+N7iZEWa98yvJt0/j5Sonw8/kTHG0aK5x47ZgZwiC+4c3e3KcmCAVoudTjdGdmsb92IHDeGStkvN+V8EfwMYXHwUctiaap/Rin4NAtayuSnIWJI9Poa4ydISA3YEY+CcyYtIm3LxCT6TtGDgnT+XD1iUxMeMGcYeNFmPTvIWmIG7w1U9FUCap0eTM0xeSBz0RwsnXPNx9pM2RkXThaciVCu60yigVc3TS02QhY4nwBGxUH/GbNDXCefgZK/w3r3WwwD0HGw==
+I0809 06:47:53.733886  108841 grpc_verifier.go:558]      signature verified
+
+```
+
+Note that the public key matches what we got through the GCE API 
+
+also see
+
+- [Using GCE APIs to retrieve EKPub](https://gist.github.com/salrashid123/4cf27b67f7d93f6cccde4276a4708820)
+- [GCE EK Signing Key](https://github.com/salrashid123/tpm2/tree/master/ak_sign_nv)
+- [go-attestation issue#334](https://github.com/google/go-attestation/issues/334)
 
 #### TLS with Attested keys
 

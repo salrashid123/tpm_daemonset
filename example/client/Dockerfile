@@ -1,4 +1,4 @@
-FROM golang:1.19 as build
+FROM golang:1.21 as build
 
 RUN apt-get update -y && apt-get install -y build-essential wget unzip curl git libtspi-dev
 

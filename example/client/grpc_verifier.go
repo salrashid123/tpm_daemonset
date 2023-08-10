@@ -28,7 +28,9 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/go-attestation/attest"
 	attestpb "github.com/google/go-tpm-tools/proto/attest"
-	"github.com/google/go-tpm/tpm2"
+
+	//"github.com/google/go-tpm/tpm2"
+	"github.com/google/go-tpm/legacy/tpm2"
 	"github.com/google/uuid"
 
 	"github.com/google/go-tpm-tools/proto/tpm"
@@ -56,6 +58,7 @@ var (
 
 	caCertTLS     = flag.String("caCertTLS", "certs/root.pem", "CA Certificate to Trust for TLS")
 	confirmGCESEV = flag.Bool("confirmGCESEV", false, "Confirm if GCE SEV Status is active")
+	signUsingEK   = flag.Bool("signUsingEK", false, "(gce only) Sign using Endorsement Signing Key")
 	letterRunes   = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 	address       = flag.String("host", "localhost:50051", "host:port of Attestor")
 	serverName    = flag.String("serverName", "attestor.esodemoapp2.com", "SNI")
@@ -372,6 +375,7 @@ func main() {
 	}
 
 	glog.V(5).Infof("     quotes verified")
+
 	el, err := attest.ParseEventLog(serverPlatformAttestationParameter.EventLog)
 	if err != nil {
 		glog.Errorf("Quote Parsing EventLog Failed: %v", err)
@@ -506,6 +510,56 @@ func main() {
 	}
 	glog.V(5).Infof("     signature verified")
 	glog.V(5).Infof("=============== end Sign ===============")
+
+	// gce only
+	if *signUsingEK {
+		glog.V(5).Infof("=============== start Sign with EK ===============")
+
+		ekSignKeyResponse, err := c.GetGCEEKSigningKey(ctx, &verifier.GetGCEEKSigningKeyRequest{})
+		if err != nil {
+			glog.Errorf("GetGCEEKSigningKey Failed,  Original Error is: %v", err)
+			os.Exit(1)
+		}
+
+		glog.V(5).Infof("     EK Signing Public \n%s", ekSignKeyResponse.Public)
+
+		block, _ := pem.Decode(ekSignKeyResponse.Public)
+		if block == nil {
+			glog.Errorf("failed to parse PEM block containing the key: %v", err)
+			os.Exit(1)
+		}
+
+		rpub, err := x509.ParsePKIXPublicKey(block.Bytes)
+		if err != nil {
+			glog.Errorf("failed to parse ParsePKIXPublicKey: %v", err)
+			os.Exit(1)
+		}
+
+		glog.V(5).Infof("=============== start Sign ===============")
+
+		dataToSign := []byte("foo")
+		signResponse, err := c.SignGCEEK(ctx, &verifier.SignGCEEKRequest{
+			Data: dataToSign,
+		})
+		if err != nil {
+			glog.Errorf("Sign Failed,  Original Error is: %v", err)
+			os.Exit(1)
+		}
+
+		glog.V(5).Infof("     signature: %s", base64.StdEncoding.EncodeToString(signResponse.Signed))
+
+		hh := sha256.New()
+		hh.Write(dataToSign)
+		hdigest := hh.Sum(nil)
+
+		err = rsa.VerifyPKCS1v15(rpub.(*rsa.PublicKey), crypto.SHA256, hdigest, signResponse.Signed)
+		if err != nil {
+			glog.Errorf("Verification failed Failed,  Original Error is: %v", err)
+			os.Exit(1)
+		}
+		glog.V(5).Infof("     signature verified")
+
+	}
 
 }
 

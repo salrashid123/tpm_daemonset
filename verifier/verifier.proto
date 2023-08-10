@@ -13,6 +13,8 @@ service Verifier {
   rpc ImportSigningKey (ImportSigningKeyRequest) returns (ImportSigningKeyResponse) { }
   rpc NewKey (NewKeyRequest) returns (NewKeyResponse) { }
   rpc Sign (SignRequest) returns (SignResponse) { }
+  rpc GetGCEEKSigningKey (GetGCEEKSigningKeyRequest) returns (GetGCEEKSigningKeyResponse) { }
+  rpc SignGCEEK (SignGCEEKRequest) returns (SignGCEEKResponse) { }
 }
 
 
@@ -87,3 +89,18 @@ message SignRequest {
 message SignResponse {
   bytes signed = 1;
 }
+
+message GetGCEEKSigningKeyRequest {}
+
+message GetGCEEKSigningKeyResponse {
+  bytes public = 1;
+}
+
+message SignGCEEKRequest {
+  bytes data = 1;
+}
+
+message SignGCEEKResponse {
+  bytes signed = 1;
+}
+

@@ -19,14 +19,16 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Verifier_GetEK_FullMethodName            = "/verifier.Verifier/GetEK"
-	Verifier_GetAK_FullMethodName            = "/verifier.Verifier/GetAK"
-	Verifier_Attest_FullMethodName           = "/verifier.Verifier/Attest"
-	Verifier_Quote_FullMethodName            = "/verifier.Verifier/Quote"
-	Verifier_ImportBlob_FullMethodName       = "/verifier.Verifier/ImportBlob"
-	Verifier_ImportSigningKey_FullMethodName = "/verifier.Verifier/ImportSigningKey"
-	Verifier_NewKey_FullMethodName           = "/verifier.Verifier/NewKey"
-	Verifier_Sign_FullMethodName             = "/verifier.Verifier/Sign"
+	Verifier_GetEK_FullMethodName              = "/verifier.Verifier/GetEK"
+	Verifier_GetAK_FullMethodName              = "/verifier.Verifier/GetAK"
+	Verifier_Attest_FullMethodName             = "/verifier.Verifier/Attest"
+	Verifier_Quote_FullMethodName              = "/verifier.Verifier/Quote"
+	Verifier_ImportBlob_FullMethodName         = "/verifier.Verifier/ImportBlob"
+	Verifier_ImportSigningKey_FullMethodName   = "/verifier.Verifier/ImportSigningKey"
+	Verifier_NewKey_FullMethodName             = "/verifier.Verifier/NewKey"
+	Verifier_Sign_FullMethodName               = "/verifier.Verifier/Sign"
+	Verifier_GetGCEEKSigningKey_FullMethodName = "/verifier.Verifier/GetGCEEKSigningKey"
+	Verifier_SignGCEEK_FullMethodName          = "/verifier.Verifier/SignGCEEK"
 )
 
 // VerifierClient is the client API for Verifier service.
@@ -41,6 +43,8 @@ type VerifierClient interface {
 	ImportSigningKey(ctx context.Context, in *ImportSigningKeyRequest, opts ...grpc.CallOption) (*ImportSigningKeyResponse, error)
 	NewKey(ctx context.Context, in *NewKeyRequest, opts ...grpc.CallOption) (*NewKeyResponse, error)
 	Sign(ctx context.Context, in *SignRequest, opts ...grpc.CallOption) (*SignResponse, error)
+	GetGCEEKSigningKey(ctx context.Context, in *GetGCEEKSigningKeyRequest, opts ...grpc.CallOption) (*GetGCEEKSigningKeyResponse, error)
+	SignGCEEK(ctx context.Context, in *SignGCEEKRequest, opts ...grpc.CallOption) (*SignGCEEKResponse, error)
 }
 
 type verifierClient struct {
@@ -123,6 +127,24 @@ func (c *verifierClient) Sign(ctx context.Context, in *SignRequest, opts ...grpc
 	return out, nil
 }
 
+func (c *verifierClient) GetGCEEKSigningKey(ctx context.Context, in *GetGCEEKSigningKeyRequest, opts ...grpc.CallOption) (*GetGCEEKSigningKeyResponse, error) {
+	out := new(GetGCEEKSigningKeyResponse)
+	err := c.cc.Invoke(ctx, Verifier_GetGCEEKSigningKey_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *verifierClient) SignGCEEK(ctx context.Context, in *SignGCEEKRequest, opts ...grpc.CallOption) (*SignGCEEKResponse, error) {
+	out := new(SignGCEEKResponse)
+	err := c.cc.Invoke(ctx, Verifier_SignGCEEK_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // VerifierServer is the server API for Verifier service.
 // All implementations should embed UnimplementedVerifierServer
 // for forward compatibility
@@ -135,6 +157,8 @@ type VerifierServer interface {
 	ImportSigningKey(context.Context, *ImportSigningKeyRequest) (*ImportSigningKeyResponse, error)
 	NewKey(context.Context, *NewKeyRequest) (*NewKeyResponse, error)
 	Sign(context.Context, *SignRequest) (*SignResponse, error)
+	GetGCEEKSigningKey(context.Context, *GetGCEEKSigningKeyRequest) (*GetGCEEKSigningKeyResponse, error)
+	SignGCEEK(context.Context, *SignGCEEKRequest) (*SignGCEEKResponse, error)
 }
 
 // UnimplementedVerifierServer should be embedded to have forward compatible implementations.
@@ -164,6 +188,12 @@ func (UnimplementedVerifierServer) NewKey(context.Context, *NewKeyRequest) (*New
 }
 func (UnimplementedVerifierServer) Sign(context.Context, *SignRequest) (*SignResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Sign not implemented")
+}
+func (UnimplementedVerifierServer) GetGCEEKSigningKey(context.Context, *GetGCEEKSigningKeyRequest) (*GetGCEEKSigningKeyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetGCEEKSigningKey not implemented")
+}
+func (UnimplementedVerifierServer) SignGCEEK(context.Context, *SignGCEEKRequest) (*SignGCEEKResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SignGCEEK not implemented")
 }
 
 // UnsafeVerifierServer may be embedded to opt out of forward compatibility for this service.
@@ -321,6 +351,42 @@ func _Verifier_Sign_Handler(srv interface{}, ctx context.Context, dec func(inter
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Verifier_GetGCEEKSigningKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetGCEEKSigningKeyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VerifierServer).GetGCEEKSigningKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Verifier_GetGCEEKSigningKey_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VerifierServer).GetGCEEKSigningKey(ctx, req.(*GetGCEEKSigningKeyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Verifier_SignGCEEK_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SignGCEEKRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VerifierServer).SignGCEEK(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Verifier_SignGCEEK_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VerifierServer).SignGCEEK(ctx, req.(*SignGCEEKRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Verifier_ServiceDesc is the grpc.ServiceDesc for Verifier service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -359,6 +425,14 @@ var Verifier_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Sign",
 			Handler:    _Verifier_Sign_Handler,
+		},
+		{
+			MethodName: "GetGCEEKSigningKey",
+			Handler:    _Verifier_GetGCEEKSigningKey_Handler,
+		},
+		{
+			MethodName: "SignGCEEK",
+			Handler:    _Verifier_SignGCEEK_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

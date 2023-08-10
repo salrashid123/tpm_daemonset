@@ -86,7 +86,7 @@ gives json claims `"instance_confidentiality": 1,` which signals confidential vm
 
 which a verifier can just check separately [Authenticating using Google OpenID Connect Tokens](https://github.com/salrashid123/google_id_token)
 
-### Sign with Atteststation Signing Key
+### Sign with Attestation Signing Key
 
 GCE VMs automatically include a the endorsement signing key saved to NV.
 
