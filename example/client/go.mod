@@ -8,11 +8,13 @@ require (
 	github.com/google/go-tpm v0.9.0
 	github.com/google/go-tpm-tools v0.4.0
 	github.com/google/uuid v1.3.0
-	github.com/salrashid123/tpm_daemonset/verifier v0.0.0-00010101000000-000000000000
+	//github.com/salrashid123/tpm_daemonset/verifier v0.0.0-00010101000000-000000000000
 	google.golang.org/grpc v1.57.0
 	google.golang.org/protobuf v1.31.0
 
 )
+
+require github.com/salrashid123/tpm_daemonset/verifier v0.0.0-20230810105258-9a27408cfaa3
 
 require (
 	github.com/golang/protobuf v1.5.3 // indirect
@@ -31,4 +33,4 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230525234030-28d5490b6b19 // indirect
 )
 
-replace github.com/salrashid123/tpm_daemonset/verifier => ../../verifier
+// replace github.com/salrashid123/tpm_daemonset/verifier => ../../verifier
