@@ -61,7 +61,7 @@ var (
 	signUsingEK   = flag.Bool("signUsingEK", false, "(gce only) Sign using Endorsement Signing Key")
 	letterRunes   = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 	address       = flag.String("host", "localhost:50051", "host:port of Attestor")
-	serverName    = flag.String("serverName", "attestor.esodemoapp2.com", "SNI")
+	serverName    = flag.String("serverName", "attestor.domain.com", "SNI")
 	handleNames   = map[string][]tpm2.HandleType{
 		"all":       {tpm2.HandleTypeLoadedSession, tpm2.HandleTypeSavedSession, tpm2.HandleTypeTransient},
 		"loaded":    {tpm2.HandleTypeLoadedSession},

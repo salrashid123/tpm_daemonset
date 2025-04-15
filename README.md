@@ -107,19 +107,8 @@ see [TODO.md](TODO.md)
 
 You can either use the built image:
 
-* `index.docker.io/salrashid123/tpmds@sha256:0c1bc5fc06333148adaa7a7a41858d458459da08da9529ae1b815e9e6050d7dd`
+* `index.docker.io/salrashid123/tpmds@sha256:55f1d40c9d7c21b7acbd8555141f58d1c99013c5f0c82c98d094248700921cbb`
 
-or the daemonset was built and [pushed](https://github.com/GoogleContainerTools/kaniko/blob/main/README.md#pushing-to-docker-hub) using Kaniko:
-
-```bash
- docker run   \
-  -v `pwd`:/workspace -v $HOME/.docker/config_docker.json:/kaniko/.docker/config.json:ro \
-   -v /var/run/docker.sock:/var/run/docker.sock \
-     gcr.io/kaniko-project/executor@sha256:034f15e6fe235490e64a4173d02d0a41f61382450c314fffed9b8ca96dff66b2    \
-	 --dockerfile=Dockerfile \
-	 --reproducible   \
-	     --destination "docker.io/salrashid123/tpmds:server"       --context dir:///workspace/
-```
 
 ### Run
 
@@ -148,7 +137,7 @@ node/gke-cluster-1-default-pool-0b6d4c85-j3ln   Ready    <none>   64m   v1.25.8-
 node/gke-cluster-1-default-pool-1bcbb7ab-fnq8   Ready    <none>   64m   v1.25.8-gke.500   10.128.0.54   35.193.152.237   Container-Optimized OS from Google   5.15.89+         containerd://1.6.18
 node/gke-cluster-1-default-pool-886e5e15-59xm   Ready    <none>   64m   v1.25.8-gke.500   10.128.0.55   34.123.40.83     Container-Optimized OS from Google   5.15.89+         containerd://1.6.18
 
-
+### exec to the "app" pod
 $ kubectl exec --stdin --tty pod/app-6d87985b5f-c5wkj -- /bin/bash
 
 $ cd /app
@@ -250,55 +239,12 @@ I0613 17:12:31.580026       1 grpc_attestor.go:428] ======= Sign ========
 
 #### EKCert and AKCert on GCE
 
-At the time of writing (`6/13/23`), GKE and general GCE VMs do _not_ populate the provider-signed endorsement or attestation certificates.
+Note that GCE Confidential VMs arleady have AK certs built in (meaning you can skip the attestation flow since you already have a signed AK)
 
-What this means is you need to find some alternate way to trust the EKPublic key for remote attestation.
+- [Sign, Verify and decode using Google Cloud vTPM Attestation Key and Certificate](https://github.com/salrashid123/gcp-vtpm-ek-ak)
+- [TPM based TLS using Attested Keys](https://github.com/salrashid123/tls_ak)
 
-One way maybe to allow the verifier access to read a GCE VM's metadata via GCP APIs (i.e, the verifier would run the gcloud command in following which is similar to the last option described in [TPM Key Attestation](https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/component-updates/tpm-key-attestation#BKMK_DeploymentOverview):
-
-- [GCE EK/AK PubKey and Certs](https://github.com/salrashid123/go_tpm_remote_attestation#ekcert-and-akcert)
-
-for a snippet on using the getShieldedIdentity API in go, see: [Using GCE APIs to retrieve EKPub](https://gist.github.com/salrashid123/4cf27b67f7d93f6cccde4276a4708820)
-
-#### Testing remote clients
-
-If you want to run a verifier from outside the GKE cluster (i.,e from your laptop), enable the `LoadBalancer` construct
-
-```yaml
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: tpm-service-external
-spec:
-  type: LoadBalancer  
-  selector:
-    name: tpm-ds
-  ports:
-  - name: http-port
-    protocol: TCP
-    port: 50051
-
-```
-
-and disable the `NetworkPolicy` which would otherwise only allow the internal traffic
-
-Apply 
-```bash
-
-$ gcloud compute firewall-rules create allow-tpm-verifier  --action allow --direction INGRESS   --source-ranges 0.0.0.0/0    --rules tcp:50051
-
-$ kubectl delete networkpolicy/allow-tpm   
-
-$ kubectl get svc
-  NAME                           TYPE           CLUSTER-IP     EXTERNAL-IP    PORT(S)           AGE     SELECTOR
-  service/tpm-service-external   LoadBalancer   10.64.10.161   34.28.252.62   50051:32280/TCP   6m19s   name=tpm-ds
-
-# use external LB address
-$ cd client/
-$ go run grpc_verifier.go -host 34.28.252.62:50051    -uid 121123 -kid 213412331    -caCertTLS ../../certs/root.pem --v=10 -alsologtostderr
-```
-
+However, i'm keeing this repo generic and not gce specific
 
 #### uid and kid Parameters
 
@@ -341,31 +287,28 @@ gke-cluster-1-default-pool-d1f70d2f-bxvt  us-central1-a  n2d-standard-2         
 gke-cluster-1-default-pool-400f6da7-fml2  us-central1-b  n2d-standard-2               10.128.0.9   34.122.137.169  RUNNING
 gke-cluster-1-default-pool-310795fa-shpr  us-central1-c  n2d-standard-2               10.128.0.10  34.67.79.116    RUNNING
 
-
+### note, the cert is from a different vm/cluster, i've added it here for demonstration only
 $ gcloud compute instances get-shielded-identity gke-cluster-1-default-pool-310795fa-shpr --zone=us-central1-c
 encryptionKey:
+  ekCert: |
+    -----BEGIN CERTIFICATE-----
+    MIIF/TCCA+WgAwIB....WQ==
+    -----END CERTIFICATE-----
   ekPub: |
     -----BEGIN PUBLIC KEY-----
-    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxS9bBn5H+FZ3e54RugUa
-    nLEjedzHnB0DGa7+sLuaVQQejtRLkZiSvS5bwSdeszAzA/yBzEmcj0Sspy5yUiLd
-    h80zlTHiclG1zba0eZBft5hoLe8sPkLHv+IkvWbPNz355j0t/73UxlKxBDyuJW1I
-    AH6Bw8AbmvcTNzWPgXWB2hLaPP48E//1wHmUpKNJ9fhd4Gqt2AYbRcQL76luN7RT
-    D0El8RsrdMVZvJZ3XgWFcFtg0CN+QeqYsiD6N2JvlOjoEtbyGHJHHfCj4qINvku/
-    OPRIWwRRH8i7+HzSVmW2/ui0Bydbe5c/aQNbjOyMI64wdaXePvDz/RkvUYHgEW5M
-    XQIDAQAB
+    MIIBIjANBgkqh....B
     -----END PUBLIC KEY-----
 kind: compute#shieldedInstanceIdentity
 signingKey:
+  ekCert: |
+    -----BEGIN CERTIFICATE-----
+    MIIF/jCCA+agAwIB....=
+    -----END CERTIFICATE-----
   ekPub: |
     -----BEGIN PUBLIC KEY-----
-    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyHxwo4A5Z4bcXEyJgbmQ
-    srCANmWiuBKJ7fVsPNjtGxAn/Ma33q7XpjfXqrcPcIwheFBU29Bp8hLmWPpmTi4l
-    1KU/TNT2n/c2zEAUZtWRVYGXtjvSHlMw4nkV2lB5RgC4zFxWKnxUdsOzqpb7rxAq
-    /tRPMzNb6WDSLssuGcihnDIKdKJXOiHSOXQMgzm4z3Zo2OzoCrPGZKZpUPFz5Ics
-    pswM5FE0vDz5dpsc6sDg046ebO5cfGjbeEwSAFDuj0Z8NoSGlXjtrQpTgmhItkET
-    OnLzPgARivZDBj9jq4BLJUMFEPAnGZrbUY6gNhsVzKxFt2MWutfnV0FCB7aueoJ9
-    cQIDAQAB
+    MIIBIjANBgkqh....
     -----END PUBLIC KEY-----
+
 ```
 
 So if you invoke the `GetGCEEKSigningKey` operation followed up by `SignGCEEK`
@@ -383,8 +326,8 @@ you'll see a signature issued by the Signing EK.  The sample client provided in 
 
 
 ```log
-$ go run grpc_verifier.go -host 34.132.226.193:50051    -uid 121123 -kid 213412331  \
-     -caCertTLS ../../certs/root.pem --v=20 -alsologtostderr -signUsingEK
+$ go run grpc_verifier.go -host tpm-service:50051 \
+   -uid 121123 -kid 213412331  -caCertTLS /certs/root.pem --v=10 -alsologtostderr -signUsingEK
 
 I0809 06:47:53.148829  108841 grpc_verifier.go:514] =============== start Sign with EK ===============
 I0809 06:47:53.425790  108841 grpc_verifier.go:522]      EK Signing Public 
